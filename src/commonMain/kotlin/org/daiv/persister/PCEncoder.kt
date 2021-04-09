@@ -41,15 +41,6 @@ class PCEncoder(
     }
 
     override fun encodeIntElement(descriptor: SerialDescriptor, index: Int, value: Int) {
-//        println("first: ${descriptor.serialName}")
-//        println("index: ${index}")
-//        descriptor.elementNames.forEach {
-//            println("second: ${it} $index")
-//        }
-//        val name = descriptor.elementNames.toList()[index]
-//        val list = descriptor.elementDescriptors.toList()
-//        println("name: $name value: $value")
-////        dataCollector.add(CollectedValue(name, descriptor, value))
         addValue(descriptor, index, value)
     }
 
@@ -78,14 +69,7 @@ class PCEncoder(
     }
 
     override fun encodeStringElement(descriptor: SerialDescriptor, index: Int, value: String) {
-//        println("first: ${descriptor.serialName}")
-//        println("index: ${index}")
-//        descriptor.elementNames.forEach {
-//            println("second: ${it}")
-//        }
-//        val name = descriptor.elementNames.toList()[index]
-//        println("name: $name, value: $value")
-        addValue(descriptor, index, value)
+        addValue(descriptor, index, "\"$value\"")
     }
 
     override fun endStructure(descriptor: SerialDescriptor) {

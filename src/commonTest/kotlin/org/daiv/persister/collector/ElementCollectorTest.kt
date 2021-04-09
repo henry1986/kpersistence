@@ -49,7 +49,7 @@ class ElementCollectorTest {
         val encoder = PEncoder(module) { collector }
         s.serialize(encoder, element)
         cache.all().forEach {
-            println("it: $${it.serializer.descriptor.serialName}")
+            println("it: $${it.cacheKey.serializer.descriptor.serialName}")
             it.all().forEach {
                 println("it: $it")
             }

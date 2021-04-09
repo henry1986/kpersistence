@@ -6,10 +6,7 @@ import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.encoding.CompositeEncoder
 import kotlinx.serialization.encoding.Encoder
 import kotlinx.serialization.modules.SerializersModule
-import org.daiv.persister.collector.ClassKey
-import org.daiv.persister.collector.ClassKeyImpl
 import org.daiv.persister.collector.EncoderStrategyFactory
-import org.daiv.persister.collector.getKeys
 
 class PEncoder(
     override val serializersModule: SerializersModule,
@@ -17,11 +14,15 @@ class PEncoder(
 ) : Encoder {
 
     override fun beginStructure(descriptor: SerialDescriptor): CompositeEncoder {
-        return PCEncoder(serializersModule, valueAdder.build(false), false)
+        val encoderStrategy = valueAdder.build(false)
+//        encoderStrategy.begin()
+        return PCEncoder(serializersModule, encoderStrategy, false)
     }
 
     override fun beginCollection(descriptor: SerialDescriptor, collectionSize: Int): CompositeEncoder {
-        return PCEncoder(serializersModule, valueAdder.build(true), true)
+        val encoderStrategy = valueAdder.build(true)
+//        encoderStrategy.begin()
+        return PCEncoder(serializersModule, encoderStrategy, true)
     }
 
     override fun encodeBoolean(value: Boolean) {
@@ -49,7 +50,7 @@ class PEncoder(
     }
 
     override fun encodeInt(value: Int) {
-        TODO("Not yet implemented")
+//        TODO("Not yet implemented")
     }
 
     override fun encodeLong(value: Long) {

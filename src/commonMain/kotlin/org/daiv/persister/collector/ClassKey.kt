@@ -10,12 +10,12 @@ enum class KeyType {
 
 interface ClassKey {
     val isCollection: Boolean
-    fun collectedValues(): List<CollectedValue>
+    fun collectedValues(): List<DBEntry>
 }
 
-data class ClassKeyImpl(val type: KeyType, val list: List<CollectedValue>, override val isCollection: Boolean) : ClassKey {
+data class ClassKeyImpl(val type: KeyType, val list: List<DBEntry>, override val isCollection: Boolean) : ClassKey {
 
-    override fun collectedValues(): List<CollectedValue> {
+    override fun collectedValues(): List<DBEntry> {
         return list
     }
 }
@@ -23,8 +23,12 @@ data class ClassKeyImpl(val type: KeyType, val list: List<CollectedValue>, overr
 fun <T : Any> SerializationStrategy<T>.getKeys(any: T): ClassKey {
     val module = SerializersModule { }
     var k: KeyCollector? = null
-    val encoder = PEncoder(module) { k = KeyCollector(descriptor, null, it);k!! }
+    val encoder = PEncoder(module) {
+
+        k = KeyCollector(descriptor, null, it);k!!
+    }
     serialize(encoder, any)
     val keyCollector = k!!
-    return ClassKeyImpl(KeyType.DEFAULT, keyCollector.values(), keyCollector.isCollection)
+    val dbEntries: List<DBEntry> = keyCollector.values()
+    return ClassKeyImpl(KeyType.DEFAULT, dbEntries, keyCollector.isCollection)
 }
