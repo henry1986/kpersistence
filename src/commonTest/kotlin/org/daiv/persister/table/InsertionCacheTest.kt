@@ -6,8 +6,8 @@ import org.daiv.coroutines.DefaultScopeContextable
 import org.daiv.persister.collector.DBEntry
 import kotlin.test.Test
 
-fun String.intValue(value: Int) = DBEntry(this, Int.serializer().descriptor, value)
-fun String.stringValue(value: String) = DBEntry(this, String.serializer().descriptor, value)
+fun String.intValue(value: Int) = DBEntry(this, Int.serializer().descriptor, value, true)
+fun String.stringValue(value: String) = DBEntry(this, String.serializer().descriptor, value, true)
 
 class InsertionCacheTest {
     @Serializable

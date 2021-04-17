@@ -5,49 +5,108 @@ import kotlinx.serialization.SerializationStrategy
 import kotlinx.serialization.descriptors.SerialDescriptor
 import kotlinx.serialization.modules.SerializersModule
 import org.daiv.persister.PEncoder
-import org.daiv.persister.collector.DBEntry
-import org.daiv.persister.collector.DBMutableCollector
-import org.daiv.persister.collector.DataCollector
-import org.daiv.persister.collector.ElementAdder
+import org.daiv.persister.collector.*
 
-data class InsertionResult(val values: List<DBEntry>, val serialDescriptor: SerialDescriptor) {
-    fun head(): List<String> {
-        return if (values.isEmpty()) {
-            serialDescriptor.getNativeDescriptorNames()
-        } else {
-            values.map { it.name }
+interface TableDescriptor {
+    fun tableName(): String
+    fun tableHeader(): List<String>
+}
+
+data class InsertionResult(val values: List<DBRow>, val tableDescriptor: TableDescriptor) : TableDescriptor by tableDescriptor {
+    fun toValues() = values.joinToString(", ") { it.entries.map { it.value }.joinToString(", ", "(", ")") }
+}
+
+data class SerialTableDescriptor(val serialDescriptor: SerialDescriptor) : TableDescriptor {
+    override fun tableName() = serialDescriptor.tableName()
+    override fun tableHeader() = serialDescriptor.getNativeDescriptorNames()
+}
+
+fun SerialDescriptor.tableDescriptor() = SerialTableDescriptor(this)
+
+fun dataCollectorEncoder(
+    collectedValues: DBMutableCollector,
+    descriptor: SerialDescriptor,
+    elementAdder: ElementAdder,
+    module: SerializersModule,
+    parent: Boolean
+) =
+    PEncoder(module) {
+        DataCollector(
+            collectedValues,
+            descriptor,
+            elementAdder,
+            true,
+            false,
+            null,
+            parent,
+            it
+        )
+    }
+
+fun <T> SerializationStrategy<T>.createObject(current: T, elementAdder: ElementAdder, module: SerializersModule): DBCollection {
+    val parent = current is Collection<*>
+    val collectedValues = DBMutableCollector()
+    val encoder = dataCollectorEncoder(collectedValues, descriptor, elementAdder, module, parent)
+    serialize(encoder, current)
+    return collectedValues.done()
+}
+
+fun <X> SerialDescriptor.insertObject(
+    insertionCache: InsertionCache,
+    o: X,
+    func: (X) -> DBCollection
+) {
+    insertionCache.insert(o, this) { current ->
+        InsertionResult(func(current).rows, this.tableDescriptor())
+    }
+}
+
+fun <T> SerializationStrategy<List<T>>.createListCollection(
+    collectionInsertData: CollectionInsertData<T>,
+    elementAdder: ElementAdder,
+    module: SerializersModule,
+): DBCollection {
+    val dbCollector = DBMutableCollector { it.add(collectionInsertData.key) }
+    val p = PEncoder(
+        module,
+        ListEncoderStrategyFactory(dbCollector, elementAdder)
+    )
+    serialize(p, collectionInsertData.o)
+    return dbCollector.done()
+}
+
+data class CollectionInsertData<T>(val key: DBEntry, val o: List<T>)
+
+
+class InsertElementAdder(val cache: InsertionCache, val module: SerializersModule) : ElementAdder {
+    override fun <T> addElement(descriptor: SerialDescriptor, index: Int, serializer: SerializationStrategy<T>, value: T) {
+        addElement(serializer, value)
+    }
+
+    fun <T> addList(serializer: SerializationStrategy<List<T>>, value: CollectionInsertData<T>) {
+        serializer.descriptor.insertObject(cache, value) {
+            serializer.createListCollection(it, this, module)
         }
     }
 
-    fun toValues() = values.map { it.value }
-}
-
-
-fun <T> SerializationStrategy<T>.insertObject(readCache: InsertionCache, o: T) {
-    readCache.insert(o as Any, descriptor) { current ->
-//        println("here")
-        val parent = o is Collection<*>
-        val collectedValues = DBMutableCollector()
-        val encoder = PEncoder(SerializersModule { }) {  DataCollector(collectedValues, descriptor, InsertElementAdder(readCache), false, null, parent, it)}
-        serialize(encoder, current as T)
-        InsertionResult(collectedValues.done().toEntries(), descriptor)
+    fun <T> addElement(serializer: SerializationStrategy<T>, value: T) {
+        serializer.descriptor.insertObject(cache, value) {
+            serializer.createObject(it, this, module)
+        }
     }
 }
 
-class InsertElementAdder(val readCache: InsertionCache) : ElementAdder {
-    override fun <T> addElement(descriptor: SerialDescriptor, index: Int, serializer: SerializationStrategy<T>, value: T) {
-        serializer.insertObject(readCache, value)
+fun List<InsertionResult>.toInsertCommand(): String? {
+    if (isEmpty()) {
+        return null
     }
-}
-
-fun List<InsertionResult>.toInsertCommand(): String {
-    val values = joinToString(", ") { it.toValues().joinToString(", ", "(", ")") }
+    val values = joinToString(", ") { it.toValues() }
     val f = first()
-    val names = f.serialDescriptor.getNativeDescriptorNames()
-    return "INSERT INTO `${f.serialDescriptor.tableName()}` (${names.joinToString(", ")}) VALUES $values;"
+    val names = f.values.first().entries.map { it.name }
+    return "INSERT INTO `${f.tableName()}` (${names.joinToString(", ")}) VALUES $values;"
 }
 
-class InsertTable(val readCache: InsertionCache) {
+class InsertTable(val readCache: InsertionCache, val module: SerializersModule) {
 
 
     suspend fun persistCache(): List<String> {
@@ -72,8 +131,10 @@ class InsertTable(val readCache: InsertionCache) {
     }
 
     fun <T : Any> insert(list: List<T>, serializer: KSerializer<T>) {
+        val adder = InsertElementAdder(readCache, module)
         list.forEach {
-            serializer.insertObject(readCache, it)
+            adder.addElement(serializer, it)
+            //            serializer.insertObject(readCache, InsertElementAdder(readCache, module), module, it)
         }
     }
 }

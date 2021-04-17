@@ -9,54 +9,6 @@ import kotlinx.serialization.modules.SerializersModule
 import org.daiv.persister.PEncoder
 import org.daiv.persister.table.*
 
-data class DBEntry(val name: String, val serialDescriptor: SerialDescriptor, val value: Any?)
-
-data class DBMutableRow(val list: MutableList<DBEntry>) : EntryConsumer {
-
-    fun done() = DBRow(list.toList())
-    override fun add(t: DBEntry) {
-        list.add(t)
-    }
-
-    override fun entries() = list.toList()
-}
-
-interface ValueConsumer<T> {
-    fun add(t: T)
-}
-
-interface EntryConsumer : ValueConsumer<DBEntry> {
-    fun entries(): List<DBEntry>
-}
-
-class DBMutableCollector : Beginable, EntryConsumer {
-    private val list: MutableList<DBMutableRow> = mutableListOf()
-    override fun begin() {
-        list.add(DBMutableRow(mutableListOf()))
-    }
-
-    fun new():DBMutableRow{
-        val row=DBMutableRow(mutableListOf())
-        list.add(row)
-        return row
-    }
-
-    override fun add(dbEntry: DBEntry) {
-        val last = list.last()
-        last.list.add(dbEntry)
-    }
-
-    override fun entries() = list.flatMap { it.list }
-
-    fun done() = DBCollection(list.map { it.done() })
-}
-
-data class DBRow(val entries: List<DBEntry>)
-data class DBCollection(val rows: List<DBRow>) {
-    fun toEntries() = rows.flatMap { it.entries }
-}
-
-
 interface SubAdder {
     fun <T> encodeSubInstance(
         serializersModule: SerializersModule,
@@ -108,13 +60,14 @@ interface ValueCollector : Valueable {
 }
 
 interface KeyValueAdder : Prefixable, ValueAdder, Valueable, ValueCollector {
+    fun isKey(descriptor: SerialDescriptor, index: Int): Boolean
 
     fun is2Add(index: Int): Boolean
     override fun addValue(descriptor: SerialDescriptor, index: Int, value: Any?) {
         if (is2Add(index)) {
             val name = descriptor.elementNames.toList()[index].prefix(prefix)
             val subDescriptor = descriptor.elementDescriptors.toList()[index]
-            collectedValues.add(DBEntry(name, subDescriptor, value))
+            collectedValues.add(DBEntry(name, subDescriptor, value, isKey(descriptor, index)))
         }
     }
 }
@@ -135,30 +88,32 @@ interface Beginable {
 
 class DefaultValueFilter(
     val descriptor: SerialDescriptor,
+    val asKey: Boolean,
     val keyOnly: Boolean,
     val isCollection: Boolean,
     override val prefix: String?,
     override val collectedValues: EntryConsumer
 ) : KeyValueAdder {
+    override fun isKey(descriptor: SerialDescriptor, index: Int) = asKey && descriptor.isKey(index)
     override fun is2Add(index: Int) = !keyOnly || descriptor.isKey(index)
     fun sub(descriptor: SerialDescriptor, index: Int, isCollection: Boolean): DefaultValueFilter {
         return if (this.isCollection) {
-            collectedValues.add(DBEntry("key", Int.serializer().descriptor, index))
-            DefaultValueFilter(descriptor, true, isCollection, "value".prefix(prefix), collectedValues)
+            collectedValues.add(DBEntry("key", Int.serializer().descriptor, index, true))
+            DefaultValueFilter(descriptor, isKey(descriptor, index), true, isCollection, "value".prefix(prefix), collectedValues)
         } else {
             val list = descriptor.elementNames.toList()
             if (index >= list.size) {
                 throw IndexOutOfBoundsException("index $index to high for list $list")
             }
             val name = list[index]
-            DefaultValueFilter(descriptor, true, isCollection, name.prefix(prefix), collectedValues)
+            DefaultValueFilter(descriptor, isKey(descriptor, index), true, isCollection, name.prefix(prefix), collectedValues)
         }
     }
 }
 
 data class DataCollector internal constructor(
     private val valueFilter: DefaultValueFilter,
-    val collector:DBMutableCollector,
+    val collector: DBMutableCollector,
     val elementAdder: ElementAdder,
     val parentIsCollection: Boolean,
     override val isCollection: Boolean
@@ -167,12 +122,13 @@ data class DataCollector internal constructor(
         collectedValues: DBMutableCollector,
         descriptor: SerialDescriptor,
         elementAdder: ElementAdder,
+        asKey: Boolean,
         keyOnly: Boolean,
         prefix: String?,
         parentIsCollection: Boolean,
         isCollection: Boolean
     ) : this(
-        DefaultValueFilter(descriptor, keyOnly, isCollection, prefix, collectedValues.new()),
+        DefaultValueFilter(descriptor, asKey, keyOnly, isCollection, prefix, collectedValues.new()),
         collectedValues,
         elementAdder,
         parentIsCollection,
@@ -201,7 +157,7 @@ data class DataCollector internal constructor(
         value: T,
         isCollection: Boolean
     ) {
-        if(valueFilter.is2Add(index)) {
+        if (valueFilter.is2Add(index)) {
             if (value !is List<*>) {
                 val p = PEncoder(serializersModule, ObjectEncoderStrategyFactory(descriptor, index, this))
                 serializer.serialize(p, value)

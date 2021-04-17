@@ -14,7 +14,7 @@ class InsertionCache(val scopeContextable: ScopeContextable) {
     private val actor = ActorableInterface(scopeContextable)
     private val map = mutableMapOf<SerialDescriptor, CalculationSuspendableMap<*, InsertionResult>>()
 
-    private inner class Insert(val o: Any, val serialDescriptor: SerialDescriptor, val valueCreation: suspend (Any) -> InsertionResult) :
+    private inner class Insert(val o: Any?, val serialDescriptor: SerialDescriptor, val valueCreation: suspend (Any?) -> InsertionResult) :
         ActorRunnable {
         override suspend fun run() {
             val x = tryDirectGet(serialDescriptor) ?: run {
@@ -23,7 +23,8 @@ class InsertionCache(val scopeContextable: ScopeContextable) {
                 calc
             }
             x as CalculationSuspendableMap<Any, InsertionResult>
-            x.launchOnNotExistence(o) {}
+            println("onNot: $o")
+            x.launchOnNotExistence(o as Any) {}
         }
 
     }
@@ -32,13 +33,13 @@ class InsertionCache(val scopeContextable: ScopeContextable) {
         return map[serialDescriptor]
     }
 
-    fun insert(o: Any, serialDescriptor: SerialDescriptor, valueCreation: suspend (Any) -> InsertionResult) {
+    fun <T> insert(o: T, serialDescriptor: SerialDescriptor, valueCreation: suspend (T) -> InsertionResult) {
         val calc = tryDirectGet(serialDescriptor)
-        if(calc == null){
-            actor.runEvent(Insert(o, serialDescriptor, valueCreation))
+        if (calc == null) {
+            actor.runEvent(Insert(o, serialDescriptor, valueCreation as suspend (Any?) -> InsertionResult))
         } else {
             calc as CalculationSuspendableMap<Any, InsertionResult>
-            calc.launchOnNotExistence(o){}
+            calc.launchOnNotExistence(o as Any) {}
         }
     }
 

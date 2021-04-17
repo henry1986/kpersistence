@@ -1,7 +1,9 @@
 package org.daiv.persister.table
 
+import kotlinx.coroutines.delay
 import kotlinx.serialization.Serializable
 import kotlinx.serialization.builtins.serializer
+import kotlinx.serialization.modules.SerializersModule
 import org.daiv.coroutines.DefaultScopeContextable
 import org.daiv.persister.MoreKeys
 import org.daiv.persister.collector.*
@@ -38,7 +40,7 @@ class InsertTableTest {
     fun testInsertionHandler() {
         val cache = InsertionCache(DefaultScopeContextable())
         val serializer = ComplexClass.serializer()
-        serializer.insertObject(cache, ComplexClass(7, SimpleClass(5, "Hello")))
+        InsertElementAdder(cache, SerializersModule { }).addElement(serializer, ComplexClass(7, SimpleClass(5, "Hello")))
 //        cache.get(serializer)?.all()?.firstOrNull()?.let { handler ->
 //            assertEquals(listOf("z", "simpleClass_x"), handler.head())
 //            assertEquals(listOf(7, 5), handler.toValues())
@@ -47,22 +49,61 @@ class InsertTableTest {
 //        }
     }
 
+    fun String.value(value: Int) = DBEntry(this, Int.serializer().descriptor, value, false)
+    fun String.key(value: Int) = DBEntry(this, Int.serializer().descriptor, value, true)
+
+    fun String.simpleValue(value: SimpleClass) = DBEntry(this, SimpleClass.serializer().descriptor, value, false)
+    fun String.simpleKey(value: SimpleClass) = DBEntry(this, SimpleClass.serializer().descriptor, value, true)
+
+    fun String.valueString(value: String) = DBEntry(this, String.serializer().descriptor, value, false)
+    fun String.keyString(value: String) = DBEntry(this, String.serializer().descriptor, value, true)
+
+    @Test
+    fun testToInsertCommand() {
+        val inserts = listOf(
+            InsertionResult(
+                listOf(DBRow(listOf("z".key(7), "simpleClass_x".value(5))), DBRow(listOf("z".key(5), "simpleClass_x".value(1)))),
+                ComplexClass.serializer().descriptor.tableDescriptor()
+            ),
+            InsertionResult(
+                listOf(DBRow(listOf("z".key(8), "simpleClass_x".value(6)))), ComplexClass.serializer().descriptor.tableDescriptor()
+            ),
+        )
+        val command = inserts.toInsertCommand()
+        assertEquals("INSERT INTO `ComplexClass` (z, simpleClass_x) VALUES (7, 5), (5, 1), (8, 6);", command)
+    }
+
     @Test
     fun testGetKey() {
         val simple = SimpleClass(8, "Hello")
         assertEquals(
-            ClassKeyImpl(KeyType.DEFAULT, listOf(DBEntry("z", Int.serializer().descriptor, 5)), false),
+            ClassKeyImpl(KeyType.DEFAULT, listOf("z".key(5)), false),
             ComplexClass.serializer().getKeys(ComplexClass(5, simple))
         )
         assertEquals(
-            ClassKeyImpl(
-                KeyType.DEFAULT, listOf(
-                    DBEntry("z", Int.serializer().descriptor, 5),
-                    DBEntry("simpleClass", SimpleClass.serializer().descriptor, simple)
-                ), false
-            ),
+            ClassKeyImpl(KeyType.DEFAULT, listOf("z".key(5), "simpleClass".simpleKey(simple)), false),
             MultipleKeyClass.serializer().getKeys(MultipleKeyClass(5, simple))
         )
+    }
+
+    @Test
+    fun testInsertObject() = runTest {
+        val cache = InsertionCache(DefaultScopeContextable())
+        val s = SimpleClass(5, "Heelo")
+        val s2 = SimpleClass(9, "Hello")
+        val serializer = SimpleClass.serializer()
+        val mutableList = mutableSetOf<SimpleClass>()
+        var counter = 0
+        val valueCreation: suspend (SimpleClass) -> InsertionResult = {
+            mutableList.add(it)
+            counter++
+            InsertionResult(listOf(), serializer.descriptor.tableDescriptor())
+        }
+        cache.insert(s, serializer.descriptor, valueCreation)
+        cache.insert(s2, serializer.descriptor, valueCreation)
+        cache.join()
+        assertEquals(2, counter)
+        assertEquals(setOf(s, s2), mutableList)
     }
 
     @Test
@@ -73,7 +114,7 @@ class InsertTableTest {
 //        val expect2 = "INSERT INTO `SimpleClass` (x, s) VALUES (5, \"Hello\"), (6, \"World\");"
 //        val expectList = setOf(expect, expect2)
         val l = listOf(s1, s2)
-        val x = InsertTable(InsertionCache(DefaultScopeContextable()))
+        val x = InsertTable(InsertionCache(DefaultScopeContextable()), SerializersModule { })
 
         x.insert(l, ComplexClass.serializer())
         x.readCache.join()
@@ -81,28 +122,16 @@ class InsertTableTest {
         assertEquals(
             setOf(
                 InsertionResult(
-                    listOf(
-                        DBEntry("z", Int.serializer().descriptor, 7),
-                        DBEntry("simpleClass_x", Int.serializer().descriptor, 5)
-                    ), ComplexClass.serializer().descriptor
+                    listOf(DBRow(listOf("z".key(7), "simpleClass_x".value(5)))), ComplexClass.serializer().descriptor.tableDescriptor()
                 ),
                 InsertionResult(
-                    listOf(
-                        DBEntry("z", Int.serializer().descriptor, 8),
-                        DBEntry("simpleClass_x", Int.serializer().descriptor, 6)
-                    ), ComplexClass.serializer().descriptor
+                    listOf(DBRow(listOf("z".key(8), "simpleClass_x".value(6)))), ComplexClass.serializer().descriptor.tableDescriptor()
                 ),
                 InsertionResult(
-                    listOf(
-                        DBEntry("x", Int.serializer().descriptor, 6),
-                        DBEntry("s", String.serializer().descriptor, "\"World\"")
-                    ), SimpleClass.serializer().descriptor
+                    listOf(DBRow(listOf("x".key(6), "s".valueString("\"World\"")))), SimpleClass.serializer().descriptor.tableDescriptor()
                 ),
                 InsertionResult(
-                    listOf(
-                        DBEntry("x", Int.serializer().descriptor, 5),
-                        DBEntry("s", String.serializer().descriptor, "\"Hello\"")
-                    ), SimpleClass.serializer().descriptor
+                    listOf(DBRow(listOf("x".key(5), "s".valueString("\"Hello\"")))), SimpleClass.serializer().descriptor.tableDescriptor()
                 ),
             ), t.toSet()
         )
@@ -116,7 +145,7 @@ class InsertTableTest {
 //        val expect2 = "INSERT INTO `SimpleClass` (x, s) VALUES (5, \"Hello\"), (6, \"World\");"
 //        val expectList = setOf(expect, expect2)
         val l = listOf(s1, s2)
-        val x = InsertTable(InsertionCache(DefaultScopeContextable()))
+        val x = InsertTable(InsertionCache(DefaultScopeContextable()), SerializersModule { })
 
         x.insert(l, Complex2Class.serializer())
         x.readCache.join()
@@ -127,43 +156,24 @@ class InsertTableTest {
         assertEquals(
             setOf(
                 InsertionResult(
-                    listOf(
-                        DBEntry("z", Int.serializer().descriptor, 6),
-                        DBEntry("complexClass_z", Int.serializer().descriptor, 7)
-                    ), Complex2Class.serializer().descriptor
+                    listOf(DBRow(listOf("z".key(6), "complexClass_z".value(7)))), Complex2Class.serializer().descriptor.tableDescriptor()
                 ),
                 InsertionResult(
-                    listOf(
-                        DBEntry("z", Int.serializer().descriptor, 9),
-                        DBEntry("complexClass_z", Int.serializer().descriptor, 8)
-                    ), Complex2Class.serializer().descriptor
+                    listOf(DBRow(listOf("z".key(9), "complexClass_z".value(8)))), Complex2Class.serializer().descriptor.tableDescriptor()
                 ),
                 InsertionResult(
-                    listOf(
-                        DBEntry("z", Int.serializer().descriptor, 7),
-                        DBEntry("simpleClass_x", Int.serializer().descriptor, 5)
-                    ), ComplexClass.serializer().descriptor
+                    listOf(DBRow(listOf("z".key(7), "simpleClass_x".value(5)))), ComplexClass.serializer().descriptor.tableDescriptor()
                 ),
                 InsertionResult(
-                    listOf(
-                        DBEntry("z", Int.serializer().descriptor, 8),
-                        DBEntry("simpleClass_x", Int.serializer().descriptor, 6)
-                    ), ComplexClass.serializer().descriptor
+                    listOf(DBRow(listOf("z".key(8), "simpleClass_x".value(6)))), ComplexClass.serializer().descriptor.tableDescriptor()
                 ),
                 InsertionResult(
-                    listOf(
-                        DBEntry("x", Int.serializer().descriptor, 6),
-                        DBEntry("s", String.serializer().descriptor, "\"World\"")
-                    ), SimpleClass.serializer().descriptor
+                    listOf(DBRow(listOf("x".key(6), "s".valueString("\"World\"")))), SimpleClass.serializer().descriptor.tableDescriptor()
                 ),
                 InsertionResult(
-                    listOf(
-                        DBEntry("x", Int.serializer().descriptor, 5),
-                        DBEntry("s", String.serializer().descriptor, "\"Hello\"")
-                    ), SimpleClass.serializer().descriptor
+                    listOf(DBRow(listOf("x".key(5), "s".valueString("\"Hello\"")))), SimpleClass.serializer().descriptor.tableDescriptor()
                 ),
             ), t.toSet()
         )
     }
-
 }

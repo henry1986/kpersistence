@@ -7,10 +7,10 @@ import kotlinx.serialization.modules.SerializersModule
 class KeyGetterValueFilter(
     val descriptor: SerialDescriptor,
     override val prefix: String?,
-    override val collectedValues: DBMutableCollector = DBMutableCollector()
+    override val collectedValues: DBMutableCollector
 ) : KeyValueAdder, ElementAdder, Beginable by collectedValues {
-
-    override fun is2Add(index: Int) = descriptor.isKey(index)
+    override fun isKey(descriptor: SerialDescriptor, index: Int) = descriptor.isKey(index)
+    override fun is2Add(index: Int) = isKey(descriptor, index)
     override fun <T> addElement(descriptor: SerialDescriptor, index: Int, serializer: SerializationStrategy<T>, value: T) {
         addValue(descriptor, index, value)
     }
@@ -21,9 +21,9 @@ data class KeyCollector private constructor(
     private val keyGetterValueFilter: KeyGetterValueFilter,
     override val isCollection: Boolean
 ) : ValueAdder by keyGetterValueFilter, ElementAdder by keyGetterValueFilter, EncoderStrategy, Beginable by keyGetterValueFilter {
-    constructor(descriptor: SerialDescriptor, prefix: String?, isCollection: Boolean) : this(
+    constructor(descriptor: SerialDescriptor, prefix: String?, dbMutableCollector: DBMutableCollector, isCollection: Boolean) : this(
         descriptor,
-        KeyGetterValueFilter(descriptor, prefix),
+        KeyGetterValueFilter(descriptor, prefix, dbMutableCollector),
         isCollection
     )
 
@@ -36,6 +36,7 @@ data class KeyCollector private constructor(
         isCollection: Boolean
     ) {
     }
+
     init {
         begin()
     }

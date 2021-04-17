@@ -10,8 +10,8 @@ class ListSimpleTypeValueAdder(override val collectedValues: DBMutableCollector 
 
     override fun addValue(descriptor: SerialDescriptor, index: Int, value: Any?) {
         val row = collectedValues.new()
-        row.add(DBEntry("key", Int.serializer().descriptor, index))
-        row.add(DBEntry("value", descriptor, value))
+        row.add(DBEntry("key", Int.serializer().descriptor, index, true))
+        row.add(DBEntry("value", descriptor, value, false))
     }
 
     override fun toString(): String {
@@ -80,7 +80,7 @@ data class ListCollector private constructor(
             addValue(serializer.descriptor, index, value)
             return
         } else {
-            val d = DataCollector(valueAdder.collectedValues, serializer.descriptor, elementAdder, true, null, true, isCollection)
+            val d = DataCollector(valueAdder.collectedValues, serializer.descriptor, elementAdder, false, true, null, true, isCollection)
             val p = PEncoder(serializersModule, ObjectEncoderStrategyFactory(descriptor, index, d))
             serializer.serialize(p, value)
         }

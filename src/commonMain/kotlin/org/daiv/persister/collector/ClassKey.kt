@@ -22,13 +22,8 @@ data class ClassKeyImpl(val type: KeyType, val list: List<DBEntry>, override val
 
 fun <T : Any> SerializationStrategy<T>.getKeys(any: T): ClassKey {
     val module = SerializersModule { }
-    var k: KeyCollector? = null
-    val encoder = PEncoder(module) {
-
-        k = KeyCollector(descriptor, null, it);k!!
-    }
+    val collector = DBMutableCollector()
+    val encoder = PEncoder(module) { KeyCollector(descriptor, null, collector, it) }
     serialize(encoder, any)
-    val keyCollector = k!!
-    val dbEntries: List<DBEntry> = keyCollector.values()
-    return ClassKeyImpl(KeyType.DEFAULT, dbEntries, keyCollector.isCollection)
+    return ClassKeyImpl(KeyType.DEFAULT, collector.entries(), false)
 }
