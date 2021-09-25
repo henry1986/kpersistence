@@ -61,7 +61,7 @@ class CORM<T : Any>(val clazz: KClass<T>, val map: CalculationMap) : ObjectRelat
     }
 
     override val objectRelationalReader: ObjectRelationalReader<T> by lazy {
-        val keys = clazz.declaredMemberProperties.noCollectionMembers().map { ReadEntryTask("") {} }
+        val keys = clazz.declaredMemberProperties.noCollectionMembers().map { ReadEntryTask(it.name) {this.nativeReads.} }
         val builder: ReadMethod.() -> T =
             {
                 clazz.objectInstance ?: clazz.primaryConstructor!!.call(*(this.list.toTypedArray()))
