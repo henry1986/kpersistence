@@ -30,15 +30,15 @@ class ListSimpleTypeValueAdder(override val collectedValues: DBMutableCollector 
 //    }
 //}
 
-class ListEncoderStrategyFactory(
-    val collectedValues: DBMutableCollector,
-    val elementAdder: ElementAdder,
-) : EncoderStrategyFactory {
-    override fun build(isCollection: Boolean): EncoderStrategy {
-        val l = ListCollector(elementAdder, collectedValues, isCollection)
-        return l
-    }
-}
+//class ListEncoderStrategyFactory(
+//    val collectedValues: DBMutableCollector,
+//    val elementAdder: ElementAdder,
+//) : EncoderStrategyFactory {
+//    override fun build(isCollection: Boolean): EncoderStrategy {
+//        val l = ListCollector(elementAdder, collectedValues, isCollection)
+//        return l
+//    }
+//}
 
 //fun SerializationStrategy<*>.isSimpleSerializer() = Int.serializer() == this || this == Long.serializer() || this == String.serializer() || Boolean.serializer()
 
@@ -56,40 +56,39 @@ fun SerializationStrategy<*>.isSimpleSerializer(): Boolean {
     return simpleSerializers.any { this == it }
 }
 
-data class ListCollector private constructor(
-    val elementAdder: ElementAdder,
-    val valueAdder: ListSimpleTypeValueAdder,
-    override val isCollection: Boolean
-) : EncoderStrategy, ElementAdder by elementAdder, ValueAdder by valueAdder, Beginable by valueAdder {
-
-    constructor(
-        elementAdder: ElementAdder,
-        collectedValues: DBMutableCollector,
-        isCollection: Boolean
-    ) : this(elementAdder, ListSimpleTypeValueAdder(collectedValues), isCollection)
-
-    override fun <T> encodeSubInstance(
-        serializersModule: SerializersModule,
-        descriptor: SerialDescriptor,
-        index: Int,
-        serializer: SerializationStrategy<T>,
-        value: T,
-        isCollection: Boolean
-    ) {
-        if (serializer.isSimpleSerializer()) {
-            addValue(serializer.descriptor, index, value)
-            return
-        } else {
-            val d = DataCollector(valueAdder.collectedValues, serializer.descriptor, elementAdder, false, true, null, true, isCollection)
-            val p = PEncoder(serializersModule, ObjectEncoderStrategyFactory(descriptor, index, d))
-            serializer.serialize(p, value)
-        }
-//        val p = PEncoder(serializersModule) {
-//            DataCollector(DefaultValueFilter(descriptor, true, null, valueAdder.collectedValues), elementAdder, true)
+//data class ListCollector private constructor(
+//    val elementAdder: ElementAdder,
+//    val valueAdder: ListSimpleTypeValueAdder,
+//) : EncoderStrategy, ElementAdder by elementAdder, ValueAdder by valueAdder, Beginable by valueAdder {
+//
+//    constructor(
+//        elementAdder: ElementAdder,
+//        collectedValues: DBMutableCollector,
+//        isCollection: Boolean
+//    ) : this(elementAdder, ListSimpleTypeValueAdder(collectedValues), isCollection)
+//
+//    override fun <T> encodeSubInstance(
+//        serializersModule: SerializersModule,
+//        descriptor: SerialDescriptor,
+//        index: Int,
+//        serializer: SerializationStrategy<T>,
+//        value: T,
+//        isCollection: Boolean
+//    ) {
+//        if (serializer.isSimpleSerializer()) {
+//            addValue(serializer.descriptor, index, value)
+//            return
+//        } else {
+//            val d = DataCollector(valueAdder.collectedValues, serializer.descriptor, elementAdder, false, true, null, true)
+//            val p = PEncoder(serializersModule, ObjectEncoderStrategyFactory(descriptor, index, d))
+//            serializer.serialize(p, value)
 //        }
-//        serializer.serialize(
-//            p,
-//            value
-//        )
-    }
-}
+////        val p = PEncoder(serializersModule) {
+////            DataCollector(DefaultValueFilter(descriptor, true, null, valueAdder.collectedValues), elementAdder, true)
+////        }
+////        serializer.serialize(
+////            p,
+////            value
+////        )
+//    }
+//}

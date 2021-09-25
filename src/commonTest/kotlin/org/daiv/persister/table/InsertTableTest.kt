@@ -38,7 +38,7 @@ class InsertTableTest {
 
     @Test
     fun testInsertionHandler() {
-        val cache = InsertionCache(DefaultScopeContextable())
+        val cache = InsertionCache("test",DefaultScopeContextable())
         val serializer = ComplexClass.serializer()
         InsertElementAdder(cache, SerializersModule { }).addElement(serializer, ComplexClass(7, SimpleClass(5, "Hello")))
 //        cache.get(serializer)?.all()?.firstOrNull()?.let { handler ->
@@ -88,7 +88,7 @@ class InsertTableTest {
 
     @Test
     fun testInsertObject() = runTest {
-        val cache = InsertionCache(DefaultScopeContextable())
+        val cache = InsertionCache("test",DefaultScopeContextable())
         val s = SimpleClass(5, "Heelo")
         val s2 = SimpleClass(9, "Hello")
         val serializer = SimpleClass.serializer()
@@ -114,7 +114,7 @@ class InsertTableTest {
 //        val expect2 = "INSERT INTO `SimpleClass` (x, s) VALUES (5, \"Hello\"), (6, \"World\");"
 //        val expectList = setOf(expect, expect2)
         val l = listOf(s1, s2)
-        val x = InsertTable(InsertionCache(DefaultScopeContextable()), SerializersModule { })
+        val x = InsertTable(InsertionCache("test",DefaultScopeContextable()), SerializersModule { })
 
         x.insert(l, ComplexClass.serializer())
         x.readCache.join()
@@ -145,7 +145,7 @@ class InsertTableTest {
 //        val expect2 = "INSERT INTO `SimpleClass` (x, s) VALUES (5, \"Hello\"), (6, \"World\");"
 //        val expectList = setOf(expect, expect2)
         val l = listOf(s1, s2)
-        val x = InsertTable(InsertionCache(DefaultScopeContextable()), SerializersModule { })
+        val x = InsertTable(InsertionCache("test",DefaultScopeContextable()), SerializersModule { })
 
         x.insert(l, Complex2Class.serializer())
         x.readCache.join()

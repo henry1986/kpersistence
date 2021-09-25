@@ -19,12 +19,10 @@ class KeyGetterValueFilter(
 data class KeyCollector private constructor(
     val descriptor: SerialDescriptor,
     private val keyGetterValueFilter: KeyGetterValueFilter,
-    override val isCollection: Boolean
 ) : ValueAdder by keyGetterValueFilter, ElementAdder by keyGetterValueFilter, EncoderStrategy, Beginable by keyGetterValueFilter {
-    constructor(descriptor: SerialDescriptor, prefix: String?, dbMutableCollector: DBMutableCollector, isCollection: Boolean) : this(
+    constructor(descriptor: SerialDescriptor, prefix: String?, dbMutableCollector: DBMutableCollector) : this(
         descriptor,
         KeyGetterValueFilter(descriptor, prefix, dbMutableCollector),
-        isCollection
     )
 
     override fun <T> encodeSubInstance(

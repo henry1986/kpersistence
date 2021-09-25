@@ -36,9 +36,7 @@ interface ElementAdder {
     }
 }
 
-interface EncoderStrategy : ValueAdder, SubAdder, ElementAdder {
-    val isCollection: Boolean
-}
+interface EncoderStrategy : ValueAdder, SubAdder, ElementAdder
 
 fun interface EncoderStrategyFactory {
     fun build(isCollection: Boolean): EncoderStrategy
@@ -86,28 +84,28 @@ interface Beginable {
     }
 }
 
+fun SerialDescriptor.name(index: Int) =
+    elementNames.toList().getOrNull(index) ?: throw NullPointerException("there is no name for index: $index at $this")
+
+fun SerialDescriptor.subDescriptor(index: Int) =
+    elementDescriptors.toList().getOrNull(index) ?: throw NullPointerException("there is no subDescriptor for index: $index at $this")
+
 class DefaultValueFilter(
     val descriptor: SerialDescriptor,
     val asKey: Boolean,
     val keyOnly: Boolean,
-    val isCollection: Boolean,
     override val prefix: String?,
     override val collectedValues: EntryConsumer
 ) : KeyValueAdder {
     override fun isKey(descriptor: SerialDescriptor, index: Int) = asKey && descriptor.isKey(index)
     override fun is2Add(index: Int) = !keyOnly || descriptor.isKey(index)
     fun sub(descriptor: SerialDescriptor, index: Int, isCollection: Boolean): DefaultValueFilter {
-        return if (this.isCollection) {
-            collectedValues.add(DBEntry("key", Int.serializer().descriptor, index, true))
-            DefaultValueFilter(descriptor, isKey(descriptor, index), true, isCollection, "value".prefix(prefix), collectedValues)
-        } else {
-            val list = descriptor.elementNames.toList()
-            if (index >= list.size) {
-                throw IndexOutOfBoundsException("index $index to high for list $list")
-            }
-            val name = list[index]
-            DefaultValueFilter(descriptor, isKey(descriptor, index), true, isCollection, name.prefix(prefix), collectedValues)
+        val list = descriptor.elementNames.toList()
+        if (index >= list.size) {
+            throw IndexOutOfBoundsException("index $index to high for list $list")
         }
+        val name = list[index]
+        return DefaultValueFilter(descriptor, isKey(descriptor, index), true, name.prefix(prefix), collectedValues)
     }
 }
 
@@ -116,7 +114,6 @@ data class DataCollector internal constructor(
     val collector: DBMutableCollector,
     val elementAdder: ElementAdder,
     val parentIsCollection: Boolean,
-    override val isCollection: Boolean
 ) : ValueAdder by valueFilter, EncoderStrategy, ElementAdder by elementAdder {
     constructor(
         collectedValues: DBMutableCollector,
@@ -126,21 +123,15 @@ data class DataCollector internal constructor(
         keyOnly: Boolean,
         prefix: String?,
         parentIsCollection: Boolean,
-        isCollection: Boolean
     ) : this(
-        DefaultValueFilter(descriptor, asKey, keyOnly, isCollection, prefix, collectedValues.new()),
+        DefaultValueFilter(descriptor, asKey, keyOnly, prefix, collectedValues.new()),
         collectedValues,
         elementAdder,
         parentIsCollection,
-        isCollection
     )
 
     fun next(descriptor: SerialDescriptor, index: Int, isCollection: Boolean) =
-        copy(
-            valueFilter = valueFilter.sub(descriptor, index, isCollection),
-            parentIsCollection = this.isCollection,
-            isCollection = isCollection
-        )
+        copy(valueFilter = valueFilter.sub(descriptor, index, isCollection))
 
     init {
 //        begin()
