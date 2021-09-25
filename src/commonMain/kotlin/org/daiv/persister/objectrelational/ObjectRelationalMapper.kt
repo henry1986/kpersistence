@@ -52,6 +52,18 @@ interface HashCodeCounterGetter {
         objectRelationalReader: ObjectRelationalReader<T>,
         hashCode: Int
     ): Int
+
+    companion object{
+        val nullGetter = object :HashCodeCounterGetter{
+            override fun <T> getCounter(
+                objectRelationalWriter: ObjectRelationalWriter<T>,
+                objectRelationalReader: ObjectRelationalReader<T>,
+                hashCode: Int
+            ): Int {
+                return 0
+            }
+        }
+    }
 }
 
 interface PreWriteEntry<T> : NoKeyEntry<PreWriteEntry<T>> {

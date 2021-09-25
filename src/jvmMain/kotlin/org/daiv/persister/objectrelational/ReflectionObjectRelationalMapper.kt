@@ -30,8 +30,8 @@ class CORM<T : Any>(val clazz: KClass<T>, val map: CalculationMap) : ObjectRelat
             .map { (it as KProperty1<T, Any>).toMapper(map, it.second) }.toList()
     }
 
+    val moreKeys = clazz.findAnnotation<MoreKeys>().default()
     override val objectRelationalHeader: ObjectRelationalHeader by lazy {
-        val moreKeys = clazz.findAnnotation<MoreKeys>().default()
         val others = clazz.declaredMemberProperties.mapIndexed { i, it ->
             val typeName = it.returnType.typeName()!!
             val x = when {
@@ -46,8 +46,14 @@ class CORM<T : Any>(val clazz: KClass<T>, val map: CalculationMap) : ObjectRelat
     }
 
     override val objectRelationalWriter: ObjectRelationalWriter<T> by lazy {
-        val keys = clazz.declaredMemberProperties.noCollectionMembers().toWriteEntry(true)
-        val others = clazz.declaredMemberProperties.noCollectionMembers().toWriteEntry(false)
+        fun List<IndexedValue<KProperty1<T, *>>>.withoutIndex() = map { it.value }
+        fun Map<Boolean, List<IndexedValue<KProperty1<T, *>>>>.toWriteEntry(isKey: Boolean) =
+            get(isKey)?.withoutIndex()?.noCollectionMembers()?.toWriteEntry(isKey) ?: emptyList()
+
+        val keysBase = clazz.declaredMemberProperties.withIndex().groupBy { it.index < moreKeys.amount }
+
+        val keys = keysBase.toWriteEntry(true)
+        val others = keys + keysBase.toWriteEntry(false)
 
         ObjectRelationalWriterData(keys, others, noNative.map {
             it.writerMap()
