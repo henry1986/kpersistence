@@ -8,6 +8,7 @@ import org.daiv.persister.MoreKeys
 import org.daiv.persister.table.default
 import kotlin.reflect.KClass
 import kotlin.reflect.KProperty1
+import kotlin.reflect.KType
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.primaryConstructor
@@ -60,8 +61,18 @@ class CORM<T : Any>(val clazz: KClass<T>, val map: CalculationMap) : ObjectRelat
         })
     }
 
+    fun KType.toNative(nativeReads: NativeReads) = when(this){
+        Int::class -> {nativeReads.readInt()}
+        Double::class -> {nativeReads.readDouble()}
+        else -> {null}
+    }
+
     override val objectRelationalReader: ObjectRelationalReader<T> by lazy {
-        val keys = clazz.declaredMemberProperties.noCollectionMembers().map { ReadEntryTask("") {} }
+        val keys = clazz.declaredMemberProperties.noCollectionMembers().map { p ->
+            ReadEntryTask(p.name) {
+                p.returnType.toNative(nativeReads)
+            }
+        }
         val builder: ReadMethod.() -> T =
             {
                 clazz.objectInstance ?: clazz.primaryConstructor!!.call(*(this.list.toTypedArray()))
