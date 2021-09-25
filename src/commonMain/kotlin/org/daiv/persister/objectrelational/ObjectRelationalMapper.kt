@@ -332,24 +332,24 @@ data class ObjectRelationalWriterData<T>(
     }
 }
 
-data class SelfTest(val selfTest: SelfTest?, val x: Int) {
-    companion object : ObjectRelationalMapper<SelfTest?> {
-        override fun hashCodeX(t: SelfTest?): Int {
-            return t?.selfTest?.hashCode() ?: 0
-        }
-
-        override val objectRelationalHeader: ObjectRelationalHeader by lazy {
-            val keys = listOf(HeadEntry("selfTest", "SelfTest", true))
-            ObjectRelationalHeaderData(keys)
-        }
-
-        override val objectRelationalWriter: ObjectRelationalWriter<SelfTest?> by lazy {
-            val keys = listOf(DefaultPreWriteEntry<SelfTest>("", true) { selfTest })
-            val objectr = ObjectRelationalWriterReceiverMap<SelfTest, SelfTest?>({ objectRelationalWriter }) { selfTest }
-            ObjectRelationalWriterData()
-        }
-    }
-}
+//data class SelfTest(val selfTest: SelfTest?, val x: Int) {
+//    companion object : ObjectRelationalMapper<SelfTest?> {
+//        override fun hashCodeX(t: SelfTest?): Int {
+//            return t?.selfTest?.hashCode() ?: 0
+//        }
+//
+//        override val objectRelationalHeader: ObjectRelationalHeader by lazy {
+//            val keys = listOf(HeadEntry("selfTest", "SelfTest", true))
+//            ObjectRelationalHeaderData(keys)
+//        }
+//
+//        override val objectRelationalWriter: ObjectRelationalWriter<SelfTest?> by lazy {
+//            val keys = listOf(DefaultPreWriteEntry<SelfTest>("", true) { selfTest })
+//            val objectr = ObjectRelationalWriterReceiverMap<SelfTest, SelfTest?>({ objectRelationalWriter }) { selfTest }
+//            ObjectRelationalWriterData()
+//        }
+//    }
+//}
 
 data class TestXZ(val a: Int, val b: String) {
     fun hashCodeX() = Companion.hashCodeX(this)

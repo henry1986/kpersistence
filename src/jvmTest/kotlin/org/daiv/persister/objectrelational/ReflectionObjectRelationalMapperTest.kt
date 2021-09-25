@@ -11,6 +11,7 @@ import org.junit.Test
 import kotlin.reflect.KClass
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
+import kotlin.test.assertEquals
 
 class ReflectionObjectRelationalMapperTest {
 
@@ -32,5 +33,19 @@ class ReflectionObjectRelationalMapperTest {
                 }
             }.toList().forEach { it.join() }
         }
+    }
+
+    @Test
+    fun testSimpleHeader(){
+        val mapper = SimpleObject::class.objectRelationMapper().objectRelationalHeader
+        val head = listOf(HeadEntry("x", "Int", true), HeadEntry("y", "String", false))
+        assertEquals(head, mapper.head())
+        assertEquals(head.take(1), mapper.keyHead(null))
+        assertEquals(head.take(1).map { it.copy("s_${it.name}") }, mapper.keyHead("s"))
+    }
+
+    @Test
+    fun testWrite(){
+        val mapper = SimpleObject::class.objectRelationMapper().objectRelationalWriter
     }
 }
