@@ -4,12 +4,12 @@ buildscript {
         maven("https://artifactory.daiv.org/artifactory/gradle-dev-local")
     }
     dependencies {
-        classpath("org.daiv.dependency:DependencyHandling:0.0.128")
-    }
+        classpath("org.daiv.dependency:DependencyHandling:0.0.145") }
 }
 
 plugins {
     kotlin("multiplatform") version "1.4.10"
+    kotlin("kapt") version "1.4.10"
     id("com.jfrog.artifactory") version "4.17.2"
     id("org.daiv.dependency.VersionsPlugin") version "0.1.3"
     kotlin("plugin.serialization") version "1.4.0"
@@ -56,7 +56,7 @@ kotlin {
     
     sourceSets {
         val commonMain by getting{
-            dependencies{
+            dependencies {
                 implementation(versions.serialization())
                 implementation(versions.coroutines())
                 implementation(versions.coroutines_lib())
@@ -70,7 +70,11 @@ kotlin {
                 implementation(kotlin("test-annotations-common"))
             }
         }
-        val jvmMain by getting
+        val jvmMain by getting{
+            dependencies {
+                implementation(kotlin("reflect"))
+            }
+        }
         val jvmTest by getting {
             dependencies {
                 implementation(kotlin("test-junit"))

@@ -6,10 +6,10 @@ import kotlinx.serialization.encoding.CompositeDecoder
 import kotlinx.serialization.encoding.Decoder
 import kotlinx.serialization.modules.SerializersModule
 
-class PDecoder(override val serializersModule: SerializersModule) : Decoder {
+class PDecoder(override val serializersModule: SerializersModule, val readData: ReadData) : Decoder {
 
     override fun beginStructure(descriptor: SerialDescriptor): CompositeDecoder {
-        return PCDecoder(serializersModule, this)
+        return PCDecoder(serializersModule, readData)
     }
     override fun decodeBoolean(): Boolean {
         TODO("Not yet implemented")

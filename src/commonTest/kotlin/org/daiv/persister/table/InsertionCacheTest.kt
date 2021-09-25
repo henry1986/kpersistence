@@ -19,7 +19,7 @@ class InsertionCacheTest {
 
     @Test
     fun testInsertion() {
-        val cache = InsertionCache(DefaultScopeContextable())
+        val cache = InsertionCache("test",DefaultScopeContextable())
         val l1 = listOf("x".intValue(5), "y".intValue(9))
         val l2 = listOf("x".intValue(6), "y".intValue(15))
         val l3 = listOf("x".intValue(6), "y".stringValue("hello"))
