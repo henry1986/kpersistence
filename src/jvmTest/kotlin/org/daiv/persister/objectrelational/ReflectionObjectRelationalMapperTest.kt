@@ -15,7 +15,7 @@ import kotlin.test.assertEquals
 
 class ReflectionObjectRelationalMapperTest {
 
-    private data class SimpleObject(val x: Int, val y: String)
+    data class SimpleObject(val x: Int, val y: String)
 
     @Test
     fun testReflection() {
@@ -51,16 +51,17 @@ class ReflectionObjectRelationalMapperTest {
         val keys = mapper.writeKey(null, s, HashCodeCounterGetter.nullGetter)
         val others = mapper.write(emptyList(), s, HashCodeCounterGetter.nullGetter)
         assertEquals(listOf(WriteEntry("x", 5, true)), keys)
-        assertEquals(listOf(WriteRow(listOf(WriteEntry("x", 5, true), WriteEntry("y", "Hello", false)))), others)
+        assertEquals(listOf(WriteRow(listOf(WriteEntry("y", "Hello", false)))), others)
     }
 
-    fun List<Any>.nativeReads() = object : NativeReads{
+    fun List<Any>.nativeReads() = object : NativeReads {
         var readIndex = 0
         fun read(): Any {
             val ret = get(readIndex)
             this.readIndex++
             return ret
         }
+
         override fun readInt(): Int {
             return read() as Int
         }
@@ -89,7 +90,7 @@ class ReflectionObjectRelationalMapperTest {
             return read() as Long
         }
 
-        override fun readShort(): Short{
+        override fun readShort(): Short {
             return read() as Short
         }
 
@@ -102,17 +103,20 @@ class ReflectionObjectRelationalMapperTest {
         }
     }
 
-    val dataRequester:DataRequester = object :DataRequester{
+    val dataRequester: DataRequester = object : DataRequester {
         override fun <T> requestData(key: List<ReadEntry>, objectRelationalMapper: ObjectRelationalReader<T>): T {
             return objectRelationalMapper.read(ReadCollection(listOf<Any>().nativeReads(), this))
         }
     }
 
     @Test
-    fun testRead(){
+    fun testRead() {
         val reader = SimpleObject::class.objectRelationMapper().objectRelationalReader
-        val readCollection = ReadCollection(listOf(5, "Hello").nativeReads(), dataRequester)
+        val read = listOf(5, "Hello")
+        val readCollection = ReadCollection(read.nativeReads(), dataRequester)
         val key = reader.readKey(readCollection)
-        println("key: $key")
+        assertEquals(listOf(ReadEntry(5)), key)
+        val others = reader.read(ReadCollection(read.nativeReads(), dataRequester))
+        assertEquals(SimpleObject(5, "Hello"), others)
     }
 }

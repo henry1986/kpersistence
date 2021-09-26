@@ -2,8 +2,10 @@ package org.daiv.persister.objectrelational
 
 import org.daiv.coroutines.CalculationSuspendableMap
 import kotlin.reflect.KClass
+import kotlin.reflect.KParameter
 import kotlin.reflect.KProperty1
 import kotlin.reflect.KType
+import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.jvm.isAccessible
 
 
@@ -18,10 +20,11 @@ data class PropertyMapper<R, T>(val p: KProperty1<R, T>, val mapper: ObjectRelat
     fun writerMap() = p.writerMap(mapper)
 }
 
-fun <T : Any> Collection<KProperty1<T, *>>.toWriteEntry(isKey: Boolean) = map {
-    DefaultPreWriteEntry<T>(it.name, isKey) {
-        it.isAccessible = true
-        it.get(this)
+fun <T : Any> Collection<KParameter>.toWriteEntry(clazz: KClass<T>, isKey: Boolean) = map { parameter ->
+    DefaultPreWriteEntry<T>(parameter.name!!, isKey) {
+        val prop = clazz.declaredMemberProperties.find { it.name == parameter.name }!!
+        prop.isAccessible = true
+        prop.get(this)
     }
 }
 

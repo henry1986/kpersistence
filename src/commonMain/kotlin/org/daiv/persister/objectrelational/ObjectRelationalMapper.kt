@@ -319,16 +319,21 @@ data class ObjectRelationalWriterReceiverMap<R, T>(val objectRelationalWriter: (
 //        return hashCodeGetter.map { it.map(prefix, func) }
 //    }
 //}
-
 data class ObjectRelationalWriterData<T>(
     val keys: List<PreWriteEntry<T>>,
     val others: List<PreWriteEntry<T>>,
     val list: List<ORWriterMap<T>>
 ) : ObjectRelationalWriter<T> {
+    /**
+     * writes only the values, that are noKeys. To write keys, use #writeKey
+     */
     override fun write(higherKeys: List<WriteEntry>, t: T, hashCodeCounterGetter: HashCodeCounterGetter): List<WriteRow> {
         return singleRow(others.flatMap { it.writeEntry(null, t, hashCodeCounterGetter) })
     }
 
+    /**
+     * writes only the keys. To write no key values, use #write
+     */
     override fun writeKey(prefix: String?, t: T, hashCodeCounterGetter: HashCodeCounterGetter): List<WriteEntry> {
         return keys.flatMap { it.writeEntry(prefix, t, hashCodeCounterGetter) }
     }
@@ -517,6 +522,9 @@ data class ObjectRelationalReaderData<T>(
     val builder: ReadMethod.() -> T
 ) : ObjectRelationalReader<T> {
 
+    /**
+     * reads keys first, and than other values. Builds the object at the end
+     */
     override fun read(readCollection: ReadCollection): T {
         val keysRead = readKey(readCollection)
         val othersRead = others.map { it.toReadData(readCollection, keysRead) }
@@ -524,6 +532,9 @@ data class ObjectRelationalReaderData<T>(
 //        return ComplexList(read1, list)
     }
 
+    /**
+     * reads only the keys. To read all values, use #read
+     */
     override fun readKey(readCollection: ReadCollection): List<ReadEntry> {
         return keys.map { it.readKey(readCollection) }
 //        return listOf(ReadEntry(readData.readInt()))
