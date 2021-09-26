@@ -71,7 +71,19 @@ interface PreWriteEntry<T> : NoKeyEntry<PreWriteEntry<T>> {
     fun <R> map(prefix: String?, transform: R.() -> T): PreWriteEntry<R>
 }
 
-interface ObjectRelationalMapper<T> {
+interface ClassParseable{
+    fun String?.isNative() = when (this) {
+        "Int", "Long", "Short", "Double", "Float", "Char", "Boolean", "String" -> true
+        else -> false
+    }
+
+    fun String?.isCollection() = when (this) {
+        "List", "Set", "Map" -> true
+        else -> false
+    }
+}
+
+interface ObjectRelationalMapper<T>:ClassParseable {
     fun hashCodeX(t: T): Int
     val objectRelationalHeader: ObjectRelationalHeader
     val objectRelationalWriter: ObjectRelationalWriter<T>
@@ -128,17 +140,6 @@ interface ObjectRelationalMapper<T> {
     fun String.headChar() = HeadEntry(this, "Char", false)
     fun String.headShort() = HeadEntry(this, "Short", false)
     fun String.headLong() = HeadEntry(this, "Long", false)
-
-    fun String?.isNative() = when (this) {
-        "Int", "Long", "Short", "Double", "Float", "Char", "Boolean", "String" -> true
-        else -> false
-    }
-
-    fun String?.isCollection() = when (this) {
-        "List", "Set", "Map" -> true
-        else -> false
-    }
-
 
     fun String.headIntKey() = HeadEntry(this, "Int", true)
     fun String.headStringKey() = HeadEntry(this, "String", true)
@@ -324,6 +325,7 @@ data class ObjectRelationalWriterData<T>(
     val others: List<PreWriteEntry<T>>,
     val list: List<ORWriterMap<T>>
 ) : ObjectRelationalWriter<T> {
+
     /**
      * writes only the values, that are noKeys. To write keys, use #writeKey
      */

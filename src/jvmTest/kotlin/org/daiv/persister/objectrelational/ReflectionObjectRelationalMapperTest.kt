@@ -7,6 +7,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
+import org.daiv.persister.table.runTest
 import org.junit.Test
 import kotlin.reflect.KClass
 import kotlin.reflect.full.declaredMemberProperties
@@ -16,6 +17,7 @@ import kotlin.test.assertEquals
 class ReflectionObjectRelationalMapperTest {
 
     data class SimpleObject(val x: Int, val y: String)
+    private val calculationMap = CalculationMap()
 
     @Test
     fun testReflection() {
@@ -36,8 +38,8 @@ class ReflectionObjectRelationalMapperTest {
     }
 
     @Test
-    fun testSimpleHeader() {
-        val mapper = SimpleObject::class.objectRelationMapper().objectRelationalHeader
+    fun testSimpleHeader() = runTest{
+        val mapper = SimpleObject::class.objectRelationMapper(calculationMap).objectRelationalHeader
         val head = listOf(HeadEntry("x", "Int", true), HeadEntry("y", "String", false))
         assertEquals(head, mapper.head())
         assertEquals(head.take(1), mapper.keyHead(null))
@@ -45,8 +47,8 @@ class ReflectionObjectRelationalMapperTest {
     }
 
     @Test
-    fun testWrite() {
-        val mapper = SimpleObject::class.objectRelationMapper().objectRelationalWriter
+    fun testWrite() = runTest{
+        val mapper = SimpleObject::class.objectRelationMapper(calculationMap).objectRelationalWriter
         val s = SimpleObject(5, "Hello")
         val keys = mapper.writeKey(null, s, HashCodeCounterGetter.nullGetter)
         val others = mapper.write(emptyList(), s, HashCodeCounterGetter.nullGetter)
@@ -110,8 +112,8 @@ class ReflectionObjectRelationalMapperTest {
     }
 
     @Test
-    fun testRead() {
-        val reader = SimpleObject::class.objectRelationMapper().objectRelationalReader
+    fun testRead() = runTest{
+        val reader = SimpleObject::class.objectRelationMapper(calculationMap).objectRelationalReader
         val read = listOf(5, "Hello")
         val readCollection = ReadCollection(read.nativeReads(), dataRequester)
         val key = reader.readKey(readCollection)
