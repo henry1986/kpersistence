@@ -27,6 +27,7 @@ data class PropertyMapper<R, T>(val p: KProperty1<R, T>, val mapper: ObjectRelat
 }
 
 fun <T : Any> KType.type() = classifier as KClass<T>
+fun KType.utype() = classifier as KClass<*>
 fun KType.typeName() = type<Any>().simpleName
 
 class CalculationMap() : ClassParseable {
@@ -46,4 +47,14 @@ class CalculationMap() : ClassParseable {
             }.toList()
     }.await()
 
+    suspend fun createKeys(classParameter: ClassParameter<*>): Map<KClass<*>, List<KParameter>> {
+        val filter = classParameter.parameters.filter {
+            !(it.type.typeName()?.isNative() ?: throw NullPointerException("did not find a typeName for $it"))
+        }
+        return filter.associate {
+            val type = it.type.utype()
+            val corm = getValue(type)
+            type to corm.keyParameters
+        }
+    }
 }

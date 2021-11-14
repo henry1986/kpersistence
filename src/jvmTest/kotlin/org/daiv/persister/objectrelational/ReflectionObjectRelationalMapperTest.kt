@@ -17,6 +17,7 @@ import kotlin.test.assertEquals
 class ReflectionObjectRelationalMapperTest {
 
     data class SimpleObject(val x: Int, val y: String)
+
     private val calculationMap = CalculationMap()
 
     @Test
@@ -38,7 +39,7 @@ class ReflectionObjectRelationalMapperTest {
     }
 
     @Test
-    fun testSimpleHeader() = runTest{
+    fun testSimpleHeader() = runTest {
         val mapper = SimpleObject::class.objectRelationMapper(calculationMap).objectRelationalHeader
         val head = listOf(HeadEntry("x", "Int", true), HeadEntry("y", "String", false))
         assertEquals(head, mapper.head())
@@ -47,7 +48,7 @@ class ReflectionObjectRelationalMapperTest {
     }
 
     @Test
-    fun testWrite() = runTest{
+    fun testWrite() = runTest {
         val mapper = SimpleObject::class.objectRelationMapper(calculationMap).objectRelationalWriter
         val s = SimpleObject(5, "Hello")
         val keys = mapper.writeKey(null, s, HashCodeCounterGetter.nullGetter)
@@ -56,54 +57,8 @@ class ReflectionObjectRelationalMapperTest {
         assertEquals(listOf(WriteRow(listOf(WriteEntry("y", "Hello", false)))), others)
     }
 
-    fun List<Any>.nativeReads() = object : NativeReads {
-        var readIndex = 0
-        fun read(): Any {
-            val ret = get(readIndex)
-            this.readIndex++
-            return ret
-        }
 
-        override fun readInt(): Int {
-            return read() as Int
-        }
-
-        override fun readBoolean(): Boolean {
-            return read() as Boolean
-        }
-
-        override fun readDouble(): Double {
-            return read() as Double
-        }
-
-        override fun readString(): String {
-            return read() as String
-        }
-
-        override fun readByte(): Byte {
-            return read() as Byte
-        }
-
-        override fun readFloat(): Float {
-            return read() as Float
-        }
-
-        override fun readLong(): Long {
-            return read() as Long
-        }
-
-        override fun readShort(): Short {
-            return read() as Short
-        }
-
-        override fun readChar(): Char {
-            return read() as Char
-        }
-
-        override fun nextRow(): Boolean {
-            return false
-        }
-    }
+    fun List<Any>.nativeReads() = ListNativeReads(listOf(this), 0, 0)
 
     val dataRequester: DataRequester = object : DataRequester {
         override fun <T> requestData(key: List<ReadEntry>, objectRelationalMapper: ObjectRelationalReader<T>): T {
@@ -112,7 +67,7 @@ class ReflectionObjectRelationalMapperTest {
     }
 
     @Test
-    fun testRead() = runTest{
+    fun testRead() = runTest {
         val reader = SimpleObject::class.objectRelationMapper(calculationMap).objectRelationalReader
         val read = listOf(5, "Hello")
         val readCollection = ReadCollection(read.nativeReads(), dataRequester)

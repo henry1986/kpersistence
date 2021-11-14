@@ -25,7 +25,8 @@ interface NoKeyEntry<T> : IsKeyInterface<T> {
     fun asKey(): T = rebuild(true)
 }
 
-data class HeadEntry(val name: String, val type: String, override val isKey: Boolean) : NoKeyEntry<HeadEntry>, PrefixBuilder {
+data class HeadEntry(val name: String, val type: String, override val isKey: Boolean) : NoKeyEntry<HeadEntry>,
+    PrefixBuilder {
     override fun rebuild(isKey: Boolean): HeadEntry = copy(isKey = isKey)
 
     fun withPrefix(prefix: String?) = copy(name = prefix.build(name))
@@ -53,8 +54,8 @@ interface HashCodeCounterGetter {
         hashCode: Int
     ): Int
 
-    companion object{
-        val nullGetter = object :HashCodeCounterGetter{
+    companion object {
+        val nullGetter = object : HashCodeCounterGetter {
             override fun <T> getCounter(
                 objectRelationalWriter: ObjectRelationalWriter<T>,
                 objectRelationalReader: ObjectRelationalReader<T>,
@@ -68,10 +69,10 @@ interface HashCodeCounterGetter {
 
 interface PreWriteEntry<T> : NoKeyEntry<PreWriteEntry<T>> {
     fun writeEntry(prefix: String?, t: T, hashCodeCounterGetter: HashCodeCounterGetter): Sequence<WriteEntry>
-    fun <R> map(prefix: String?, transform: R.() -> T): PreWriteEntry<R>
+    fun <R> map(prefix: String?, isKey: Boolean, transform: R.() -> T): PreWriteEntry<R>
 }
 
-interface ClassParseable{
+interface ClassParseable {
     fun String?.isNative() = when (this) {
         "Int", "Long", "Short", "Double", "Float", "Char", "Boolean", "String" -> true
         else -> false
@@ -83,7 +84,7 @@ interface ClassParseable{
     }
 }
 
-interface ObjectRelationalMapper<T>:ClassParseable {
+interface ObjectRelationalMapper<T> : ClassParseable {
     fun hashCodeX(t: T): Int
     val objectRelationalHeader: ObjectRelationalHeader
     val objectRelationalWriter: ObjectRelationalWriter<T>
@@ -96,18 +97,20 @@ interface ObjectRelationalMapper<T>:ClassParseable {
     fun <T> String.writeValue(func: T.() -> Any?) = DefaultPreWriteEntry(this, false, func)
 
     fun <R, T> String.writeValue(objectRelationalWriter: ObjectRelationalWriter<R>, func: T.() -> R) =
-        (objectRelationalWriter.preWriteKey(this, func)).noKey()
+        (objectRelationalWriter.preWriteKey(this, false, func))
 
     fun <R, T> String.writeValue(mapper: ObjectRelationalMapper<R>, func: T.() -> R) =
-        (mapper.objectRelationalWriter.preWriteKey(this, func)).noKey()
+        (mapper.objectRelationalWriter.preWriteKey(this, false,func))
 
     fun <R, T> String.writeKey(objectRelationalWriter: ObjectRelationalWriter<R>, func: T.() -> R) =
-        (objectRelationalWriter.preWriteKey(this, func)).asKey()
+        (objectRelationalWriter.preWriteKey(this, true, func))
 
     fun <R, T> String.writeKey(mapper: ObjectRelationalMapper<R>, func: T.() -> R) =
-        (mapper.objectRelationalWriter.preWriteKey(this, func)).asKey()
+        (mapper.objectRelationalWriter.preWriteKey(this, true, func))
 
-    fun <T, R> ObjectRelationalMapper<T>.writerMap(map: R.() -> T) = ObjectRelationalWriterReceiverMap({ this.objectRelationalWriter }, map)
+    fun <T, R> ObjectRelationalMapper<T>.writerMap(map: R.() -> T) =
+        ObjectRelationalWriterReceiverMap({ this.objectRelationalWriter }, map)
+
     fun <T, R> ObjectRelationalMapper<T>.writerListMap(map: R.() -> List<T>) =
         ObjectRelationalWriterMap(ListObjectWriter { this.objectRelationalWriter }, map)
 
@@ -124,14 +127,19 @@ interface ObjectRelationalMapper<T>:ClassParseable {
 
     fun <T> String.requestList(mapper: ObjectRelationalMapper<T>, keys: List<ReadEntryTask>) =
         ReadEntryTask(this) {
-            val reader = ListObjectReader(this@ObjectRelationalMapper.objectRelationalReader, keys, mapper.objectRelationalReader)
+            val reader = ListObjectReader(
+                this@ObjectRelationalMapper.objectRelationalReader,
+                keys,
+                mapper.objectRelationalReader
+            )
             dataRequester.requestData(it, reader)
         }
 
     fun <T> String.headValue(mapper: ObjectRelationalMapper<T>) = mapper.objectRelationalHeader.keyHead(this).noKey()
     fun <T> String.headKey(mapper: ObjectRelationalMapper<T>) = mapper.objectRelationalHeader.keyHead(this).asKey()
 
-    fun <T> ObjectRelationalMapper<T>.headList(keys: List<HeadEntry>) = listHeader(keys.prefix("ref_"), this.objectRelationalHeader)
+    fun <T> ObjectRelationalMapper<T>.headList(keys: List<HeadEntry>) =
+        listHeader(keys.prefix("ref_"), this.objectRelationalHeader)
 
     fun String.headInt() = HeadEntry(this, "Int", false)
     fun String.headString() = HeadEntry(this, "String", false)
@@ -163,10 +171,13 @@ data class HashCodeWriteEntry<T, S> private constructor(
     override fun writeEntry(prefix: String?, t: T, hashCodeCounterGetter: HashCodeCounterGetter): Sequence<WriteEntry> {
         val hashCode = t.getHashCode()
         val counter = hashCodeCounterGetter.getCounter(objectRelationalWriter, objectRelationalReader, hashCode)
-        return sequenceOf(WriteEntry(prefix.build(name), hashCode, isKey), WriteEntry(prefix.build(counterName), counter, isKey))
+        return sequenceOf(
+            WriteEntry(prefix.build(name), hashCode, isKey),
+            WriteEntry(prefix.build(counterName), counter, isKey)
+        )
     }
 
-    override fun <R> map(prefix: String?, transform: R.() -> T): PreWriteEntry<R> {
+    override fun <R> map(prefix: String?, isKey: Boolean, transform: R.() -> T): PreWriteEntry<R> {
         return HashCodeWriteEntry(isKey, objectRelationalWriter, objectRelationalReader) { transform().getHashCode() }
     }
 
@@ -190,7 +201,7 @@ data class DefaultPreWriteEntry<T>(val name: String, override val isKey: Boolean
         return sequenceOf(WriteEntry(prefix.build(name), t.func(), isKey))
     }
 
-    override fun <R> map(prefix: String?, transform: R.() -> T): PreWriteEntry<R> {
+    override fun <R> map(prefix: String?, isKey: Boolean, transform: R.() -> T): PreWriteEntry<R> {
         return DefaultPreWriteEntry(prefix.build(name), isKey) { transform().func() }
     }
 
@@ -198,7 +209,7 @@ data class DefaultPreWriteEntry<T>(val name: String, override val isKey: Boolean
 }
 
 interface TaskReceiver {
-    fun <R> task(r: R, higherKeys: List<WriteEntry>, mapper: ObjectRelationalWriter<R>)
+    suspend fun <R> task(r: R, higherKeys: List<WriteEntry>, mapper: ObjectRelationalWriter<R>)
 }
 
 interface PlainTaskReceiver {
@@ -253,8 +264,8 @@ interface ObjectRelationalWriter<T> : PrefixBuilder {
 
     fun write(higherKeys: List<WriteEntry>, t: T, hashCodeCounterGetter: HashCodeCounterGetter): List<WriteRow>
     fun writeKey(prefix: String?, t: T, hashCodeCounterGetter: HashCodeCounterGetter): List<WriteEntry>
-    fun <R> preWriteKey(prefix: String?, func: R.() -> T): List<PreWriteEntry<R>>
-    fun subs(t: T, taskReceiver: TaskReceiver, hashCodeCounterGetter: HashCodeCounterGetter)
+    fun <R> preWriteKey(prefix: String?, isKey: Boolean, func: R.() -> T): List<PreWriteEntry<R>>
+    suspend fun subs(t: T, taskReceiver: TaskReceiver, hashCodeCounterGetter: HashCodeCounterGetter)
 }
 
 fun List<HeadEntry>.prefix(prefix: String?) = map { it.withPrefix(prefix) }
@@ -280,18 +291,22 @@ data class ObjectRelationalHeaderData(
     }
 }
 
-interface ORWriterMap<R>{
-    fun sub(r: R, keys: List<WriteEntry>, taskReceiver: TaskReceiver)
+interface ORWriterMap<R> {
+    suspend fun sub(r: R, keys: List<WriteEntry>, taskReceiver: TaskReceiver)
 }
 
-data class ObjectRelationalWriterMap<R, T>(val objectRelationalWriter: ObjectRelationalWriter<T>, val func: R.() -> T) :ORWriterMap<R>{
-    override fun sub(r: R, keys: List<WriteEntry>, taskReceiver: TaskReceiver) {
+data class ObjectRelationalWriterMap<R, T>(val objectRelationalWriter: ObjectRelationalWriter<T>, val func: R.() -> T) :
+    ORWriterMap<R> {
+    override suspend fun sub(r: R, keys: List<WriteEntry>, taskReceiver: TaskReceiver) {
         taskReceiver.task(r.func(), keys, objectRelationalWriter)
     }
 }
 
-data class ObjectRelationalWriterReceiverMap<R, T>(val objectRelationalWriter: () -> ObjectRelationalWriter<T>, val func: R.() -> T) :ORWriterMap<R>{
-    override fun sub(r: R, keys: List<WriteEntry>, taskReceiver: TaskReceiver) {
+data class ObjectRelationalWriterReceiverMap<R, T>(
+    val objectRelationalWriter: () -> ObjectRelationalWriter<T>,
+    val func: R.() -> T
+) : ORWriterMap<R> {
+    override suspend fun sub(r: R, keys: List<WriteEntry>, taskReceiver: TaskReceiver) {
         taskReceiver.task(r.func(), keys, objectRelationalWriter())
     }
 }
@@ -329,7 +344,11 @@ data class ObjectRelationalWriterData<T>(
     /**
      * writes only the values, that are noKeys. To write keys, use #writeKey
      */
-    override fun write(higherKeys: List<WriteEntry>, t: T, hashCodeCounterGetter: HashCodeCounterGetter): List<WriteRow> {
+    override fun write(
+        higherKeys: List<WriteEntry>,
+        t: T,
+        hashCodeCounterGetter: HashCodeCounterGetter
+    ): List<WriteRow> {
         return singleRow(others.flatMap { it.writeEntry(null, t, hashCodeCounterGetter) })
     }
 
@@ -340,14 +359,14 @@ data class ObjectRelationalWriterData<T>(
         return keys.flatMap { it.writeEntry(prefix, t, hashCodeCounterGetter) }
     }
 
-    override fun subs(t: T, taskReceiver: TaskReceiver, hashCodeCounterGetter: HashCodeCounterGetter) {
+    override suspend fun subs(t: T, taskReceiver: TaskReceiver, hashCodeCounterGetter: HashCodeCounterGetter) {
         list.forEach { o ->
             t?.let { o.sub(it, writeKey(null, it, hashCodeCounterGetter), taskReceiver) }
         }
     }
 
-    override fun <R> preWriteKey(prefix: String?, func: R.() -> T): List<PreWriteEntry<R>> {
-        return keys.map { it.map(prefix, func) }
+    override fun <R> preWriteKey(prefix: String?, isKey: Boolean, func: R.() -> T): List<PreWriteEntry<R>> {
+        return keys.map { it.map(prefix, isKey, func) }
     }
 }
 
@@ -378,7 +397,11 @@ data class TestXZ(val a: Int, val b: String) {
         override fun hashCodeX(o: TestXZ) = o.a * 31 + o.b.hashCodeX() * 31
 
         override val objectRelationalHeader: ObjectRelationalHeader by lazy {
-            ObjectRelationalHeaderData(listOf(HeadEntry("a", "Int", true)), listOf(HeadEntry("b", "String", false)), emptyList())
+            ObjectRelationalHeaderData(
+                listOf(HeadEntry("a", "Int", true)),
+                listOf(HeadEntry("b", "String", false)),
+                emptyList()
+            )
         }
 
         override val objectRelationalWriter: ObjectRelationalWriter<TestXZ> by lazy {
@@ -464,7 +487,12 @@ data class ComplexList(val x: Int, val l: List<TestXZ>) {
 
         override val objectRelationalReader: ObjectRelationalReader<ComplexList> by lazy {
             val keys = listOf("x".readInt())
-            ObjectRelationalReaderData("ComplexList", keys, listOf("l".requestList(TestXZ, keys))) { ComplexList(get(0), get(1)) }
+            ObjectRelationalReaderData("ComplexList", keys, listOf("l".requestList(TestXZ, keys))) {
+                ComplexList(
+                    get(0),
+                    get(1)
+                )
+            }
         }
     }
 }
@@ -530,6 +558,15 @@ data class ObjectRelationalReaderData<T>(
     override fun read(readCollection: ReadCollection): T {
         val keysRead = readKey(readCollection)
         val othersRead = others.map { it.toReadData(readCollection, keysRead) }
+        println("keysRead:")
+        keysRead.forEach {
+            println("it: $it")
+        }
+        println("others:")
+        othersRead.forEach {
+            println("it: $it")
+        }
+
         return ReadMethod(keysRead + othersRead).builder()
 //        return ComplexList(read1, list)
     }

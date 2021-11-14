@@ -85,13 +85,13 @@ class ListObjectWriter<E>(
     }
 
 
-    override fun subs(t: List<E>?, taskReceiver: TaskReceiver, hashCodeCounterGetter: HashCodeCounterGetter) {
+    override suspend fun subs(t: List<E>?, taskReceiver: TaskReceiver, hashCodeCounterGetter: HashCodeCounterGetter) {
         t?.forEach {
             it?.let { taskReceiver.task(it, emptyList(), elementMapper()) }
         }
     }
 
-    override fun <R> preWriteKey(prefix: String?, func: R.() -> List<E>?): List<PreWriteEntry<R>> {
+    override fun <R> preWriteKey(prefix: String?, isKey:Boolean, func: R.() -> List<E>?): List<PreWriteEntry<R>> {
         TODO()
     }
 }

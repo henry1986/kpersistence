@@ -1,5 +1,8 @@
 package org.daiv.persister.objectrelational
 
+import kotlinx.coroutines.GlobalScope
+import kotlinx.coroutines.channels.Channel
+import kotlinx.coroutines.launch
 import org.daiv.persister.objectrelational.ReflectionObjectRelationalMapperTest.*
 import org.daiv.persister.table.runTest
 import org.junit.Test
@@ -28,8 +31,6 @@ class TestComplexObject {
         val simpleMapper = calculationMap.getValue(SimpleObject::class)
         val complexObject = ComplexObject(5, "this is crap", SimpleObject(9, "Hello"))
         val writer = ComplexObject::class.objectRelationMapper(calculationMap).objectRelationalWriter
-        val keys = listOf(DefaultPreWriteEntry<ComplexObject>("id", true) { id })
-        val others = listOf(DefaultPreWriteEntry<ComplexObject>("comment", false) { comment })
         assertTrue { writer.list.size == 1 }
         val first = writer.list.first()
         assertTrue { first is ObjectRelationalWriterMap<*, *> }
@@ -48,12 +49,45 @@ class TestComplexObject {
                 )
             ), written
         )
-        println("got: $written")
+        val channel = Channel<Unit>()
+        writer.subs(complexObject, object : TaskReceiver {
+            override suspend fun <R> task(r: R, higherKeys: List<WriteEntry>, mapper: ObjectRelationalWriter<R>) {
+                val written = mapper.write(higherKeys, r, HashCodeCounterGetter.nullGetter)
+                val keys = mapper.writeKey(null, r, HashCodeCounterGetter.nullGetter)
+                assertEquals(listOf(WriteEntry("x", 9, true)), keys)
+                assertEquals(listOf(WriteRow(listOf(WriteEntry("y", "Hello", false)))), written)
+                GlobalScope.launch {
+                    channel.send(Unit)
+                }
+            }
+        }, HashCodeCounterGetter.nullGetter)
+        channel.receive()
 //        assertEquals(writerData, writer.list.map { it as ObjectRelationalWriterMap })
     }
 
     @Test
-    fun testRead() {
+    fun testKeys() = runTest {
+        val keys = calculationMap.createKeys(ClassParameterImpl(ComplexObject::class))
+        val r = keys.map {
+            it.key to it.value.map { it.name }
+        }.toMap()
+        assertEquals(mapOf(SimpleObject::class to listOf("x")), r)
+    }
 
+    @Test
+    fun testRead() = runTest {
+//        val simpleMapper = calculationMap.getValue(SimpleObject::class)
+        val complexObject = ComplexObject(5, "this is crap", SimpleObject(9, "Hello"))
+        val reader = ComplexObject::class.objectRelationMapper(calculationMap).objectRelationalReader
+        val dataRequester = object : DataRequester {
+            override fun <T> requestData(key: List<ReadEntry>, objectRelationalMapper: ObjectRelationalReader<T>): T {
+                println("key: $key")
+                return complexObject.s as T
+            }
+        }
+        val key = reader.readKey(ReadCollection(ListNativeReads(listOf(listOf(5))), dataRequester))
+        assertEquals(listOf(ReadEntry(5)), key)
+        val read = reader.read(ReadCollection(ListNativeReads(listOf(listOf(5, "this is crap", 9))), dataRequester))
+        println("read: $read")
     }
 }
