@@ -65,14 +65,14 @@ class TestComplexObject {
 //        assertEquals(writerData, writer.list.map { it as ObjectRelationalWriterMap })
     }
 
-    @Test
-    fun testKeys() = runTest {
-        val keys = calculationMap.createKeys(ClassParameterImpl(ComplexObject::class))
-        val r = keys.map {
-            it.key to it.value.map { it.name }
-        }.toMap()
-        assertEquals(mapOf(SimpleObject::class to listOf("x")), r)
-    }
+//    @Test
+//    fun testKeys() = runTest {
+//        val keys = calculationMap.createKeys(ClassParameterImpl(ComplexObject::class))
+//        val r = keys.map {
+//            it.key to it.value.map { it.name }
+//        }.toMap()
+//        assertEquals(mapOf(SimpleObject::class to listOf("x")), r)
+//    }
 
     @Test
     fun testRead() = runTest {
@@ -82,12 +82,15 @@ class TestComplexObject {
         val dataRequester = object : DataRequester {
             override fun <T> requestData(key: List<ReadEntry>, objectRelationalMapper: ObjectRelationalReader<T>): T {
                 println("key: $key")
-                return complexObject.s as T
+                if (key == listOf(ReadEntry(9))) {
+                    return complexObject.s as T
+                }
+                return null as T
             }
         }
         val key = reader.readKey(ReadCollection(ListNativeReads(listOf(listOf(5))), dataRequester))
         assertEquals(listOf(ReadEntry(5)), key)
         val read = reader.read(ReadCollection(ListNativeReads(listOf(listOf(5, "this is crap", 9))), dataRequester))
-        println("read: $read")
+        assertEquals(complexObject, read)
     }
 }

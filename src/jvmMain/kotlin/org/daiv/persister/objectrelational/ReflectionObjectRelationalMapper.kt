@@ -4,7 +4,6 @@ import org.daiv.persister.MoreKeys
 import org.daiv.persister.MoreKeysData
 import org.daiv.persister.table.default
 import kotlin.reflect.KClass
-import kotlin.reflect.KClassifier
 import kotlin.reflect.KParameter
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
@@ -54,7 +53,7 @@ class ClassParameterImpl<T : Any>(override val clazz: KClass<T>) : ClassParamete
 class CORM<T : Any>(
     val classParameter: ClassParameter<T>,
     override val noNative: List<PropertyMapper<T, Any?>>,
-    val keys: Map<KClass<*>, List<KParameter>>,
+    val keys: Map<KClass<*>, CORM<out Any>>,
 
     ) : ObjectRelationalMapper<T>, JavaParseable<T>, ClassParameter<T> by classParameter {
     fun Collection<KParameter>.noCollectionMembers() =
@@ -103,30 +102,26 @@ class CORM<T : Any>(
 
     private fun readEntryTask(p: KParameter): List<ReadEntryTask> {
         val type = p.type.type<T>()
-        return if (!type.simpleName.isNative()) {
-            val x = keys[type]?.map {
-                readEntryTask(it)
-            }?.flatten() ?: throw NullPointerException("did not find value for $type")
-            
-            x
-        } else {
-            listOf(ReadEntryTask(p.name!!) {
-                when (type) {
-                    Int::class -> {
-                        nativeReads.readInt()
-                    }
-                    Double::class -> {
-                        nativeReads.readDouble()
-                    }
-                    String::class -> {
-                        nativeReads.readString()
-                    }
-                    else -> {
-                        throw RuntimeException("unknown type: $type")
+        return listOf(ReadEntryTask(p.name!!) {
+            when (type) {
+                Int::class -> {
+                    nativeReads.readInt()
+                }
+                Double::class -> {
+                    nativeReads.readDouble()
+                }
+                String::class -> {
+                    nativeReads.readString()
+                }
+                else -> {
+                    keys[type]?.objectRelationalReader?.let {
+                        val key = it.readKey(this)
+                        val data = dataRequester.requestData(key, it)
+                        data
                     }
                 }
-            })
-        }
+            }
+        })
     }
 
 

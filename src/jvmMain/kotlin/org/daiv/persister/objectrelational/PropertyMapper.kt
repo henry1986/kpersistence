@@ -47,14 +47,14 @@ class CalculationMap() : ClassParseable {
             }.toList()
     }.await()
 
-    suspend fun createKeys(classParameter: ClassParameter<*>): Map<KClass<*>, List<KParameter>> {
+    suspend fun createKeys(classParameter: ClassParameter<*>): Map<KClass<*>, CORM<out Any>> {
         val filter = classParameter.parameters.filter {
             !(it.type.typeName()?.isNative() ?: throw NullPointerException("did not find a typeName for $it"))
         }
         return filter.associate {
             val type = it.type.utype()
             val corm = getValue(type)
-            type to corm.keyParameters
+            type to corm
         }
     }
 }
