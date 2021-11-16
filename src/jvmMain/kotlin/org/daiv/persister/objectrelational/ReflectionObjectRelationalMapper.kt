@@ -64,8 +64,7 @@ class CORM<T : Any>(
     }
 
     override val objectRelationalHeader: ObjectRelationalHeader by lazy {
-        println("member: ${clazz.primaryConstructor?.parameters?.map { it.name }}")
-        val all = clazz.primaryConstructor?.parameters?.mapIndexed { i, it ->
+        val all = classParameter.parameters.mapIndexed { i, it ->
             val typeName = it.type.typeName()!!
             val x = when {
                 typeName.isNative() -> listOf(HeadEntry(it.name!!, typeName, moreKeys.amount > i))
@@ -75,12 +74,15 @@ class CORM<T : Any>(
                 }!!.mapper)
             }
             x
-        }?.flatten()
-        val map = all?.groupBy { it.isKey } ?: emptyMap()
+        }.flatten()
+        val map = all.groupBy { it.isKey }
+        val keyEntries = map[true] ?: emptyList()
+        val collectionParamaters = classParameter.parameters.filter { it.type.typeName().isCollection() }
+        collectionParamaters.map { listHeader(keyEntries,it.type.arguments[0].type) }
         ObjectRelationalHeaderData(
-            map[true] ?: emptyList(),
+            keyEntries,
             map[false] ?: emptyList(),
-            noNative.map { it.mapper.objectRelationalHeader })
+            noNative.map { it.mapper.objectRelationalHeader })// + listOf(listHeader(keyEntries, )))
     }
 
     override val objectRelationalWriter: ObjectRelationalWriterData<T> by lazy {
@@ -147,9 +149,13 @@ class CORM<T : Any>(
 }
 
 suspend fun <T : Any> KClass<T>.objectRelationMapper(map: CalculationMap): CORM<T> {
+    println("get mapper for: $this")
     val noNative = map.createNoNative(this)
+    println("2 get mapper for: $this")
     val classParameter = ClassParameterImpl(this)
+    println("3 get mapper for: $this")
     val keys = map.createKeys(classParameter)
+    println("4 get mapper for: $this")
     return CORM(classParameter, noNative, keys)
 }
 

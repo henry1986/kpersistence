@@ -65,14 +65,14 @@ class TestComplexObject {
 //        assertEquals(writerData, writer.list.map { it as ObjectRelationalWriterMap })
     }
 
-//    @Test
-//    fun testKeys() = runTest {
-//        val keys = calculationMap.createKeys(ClassParameterImpl(ComplexObject::class))
-//        val r = keys.map {
-//            it.key to it.value.map { it.name }
-//        }.toMap()
-//        assertEquals(mapOf(SimpleObject::class to listOf("x")), r)
-//    }
+    @Test
+    fun testKeysComplex() = runTest {
+        val keys = calculationMap.createKeys(ClassParameterImpl(ComplexObject::class))
+        assertEquals(
+            mapOf(SimpleObject::class to SimpleObject::class),
+            keys.map { it.key to it.value.classParameter.clazz }.toMap()
+        )
+    }
 
     @Test
     fun testRead() = runTest {
