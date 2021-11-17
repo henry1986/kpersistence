@@ -100,7 +100,7 @@ interface ObjectRelationalMapper<T> : ClassParseable {
         (objectRelationalWriter.preWriteKey(this, false, func))
 
     fun <R, T> String.writeValue(mapper: ObjectRelationalMapper<R>, func: T.() -> R) =
-        (mapper.objectRelationalWriter.preWriteKey(this, false,func))
+        (mapper.objectRelationalWriter.preWriteKey(this, false, func))
 
     fun <R, T> String.writeKey(objectRelationalWriter: ObjectRelationalWriter<R>, func: T.() -> R) =
         (objectRelationalWriter.preWriteKey(this, true, func))
@@ -273,7 +273,7 @@ fun List<HeadEntry>.prefix(prefix: String?) = map { it.withPrefix(prefix) }
 data class ObjectRelationalHeaderData(
     val keyEntries: List<HeadEntry>,
     val others: List<HeadEntry>,
-    val headers: List<ObjectRelationalHeader>
+    val headers: List<() -> ObjectRelationalHeader>
 ) : ObjectRelationalHeader {
     override fun head(): List<HeadEntry> {
         return others
@@ -285,7 +285,7 @@ data class ObjectRelationalHeaderData(
 
     override fun subHeader(plainTaskReceiver: PlainTaskReceiver, task: (ObjectRelationalHeader) -> Unit) {
         headers.forEach {
-            plainTaskReceiver.task(task, it)
+            plainTaskReceiver.task(task, it())
         }
 //                plainTaskReceiver.task(task, TestXZ)
     }
@@ -432,7 +432,7 @@ data class TestComplex(val a: Int, val t: TestXZ) {
             ObjectRelationalHeaderData(
                 listOf("a".headInt()),
                 "t".headValue(TestXZ),
-                listOf(TestXZ.objectRelationalHeader)
+                listOf({ TestXZ.objectRelationalHeader })
             )
         }
 
@@ -473,7 +473,7 @@ data class ComplexList(val x: Int, val l: List<TestXZ>) {
             ObjectRelationalHeaderData(
                 keyEntries,
                 emptyList(),
-                listOf(TestXZ.headList(keyEntries))
+                listOf({ TestXZ.headList(keyEntries) })
             )
         }
 

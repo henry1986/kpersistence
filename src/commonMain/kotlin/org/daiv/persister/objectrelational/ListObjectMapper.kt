@@ -64,7 +64,7 @@ fun listHeader(masterEntries: List<HeadEntry>, elementMapper: ObjectRelationalHe
     ObjectRelationalHeaderData(
         masterEntries + HeadEntry("index", "Int", true),
         elementMapper.keyHead("value_").noKey(),
-        listOf(elementMapper)
+        listOf({ elementMapper })
     )
 
 
@@ -74,13 +74,27 @@ class ListObjectWriter<E>(
 
 //    private val keys by lazy { keys.map { it.copy(name = "ref_".build(it.name)) } }
 
-    override fun write(higherKeys: List<WriteEntry>, t: List<E>?, hashCodeCounterGetter: HashCodeCounterGetter): List<WriteRow> {
+    override fun write(
+        higherKeys: List<WriteEntry>,
+        t: List<E>?,
+        hashCodeCounterGetter: HashCodeCounterGetter
+    ): List<WriteRow> {
         return t?.mapIndexed { i, it ->
-            WriteRow(higherKeys + WriteEntry("index", i, true) + elementMapper().writeKey("value_", it, hashCodeCounterGetter))
+            WriteRow(
+                higherKeys + WriteEntry("index", i, true) + elementMapper().writeKey(
+                    "value_",
+                    it,
+                    hashCodeCounterGetter
+                )
+            )
         } ?: emptyList()
     }
 
-    override fun writeKey(prefix: String?, t: List<E>?, hashCodeCounterGetter: HashCodeCounterGetter): List<WriteEntry> {
+    override fun writeKey(
+        prefix: String?,
+        t: List<E>?,
+        hashCodeCounterGetter: HashCodeCounterGetter
+    ): List<WriteEntry> {
         return emptyList()
     }
 
@@ -91,7 +105,7 @@ class ListObjectWriter<E>(
         }
     }
 
-    override fun <R> preWriteKey(prefix: String?, isKey:Boolean, func: R.() -> List<E>?): List<PreWriteEntry<R>> {
+    override fun <R> preWriteKey(prefix: String?, isKey: Boolean, func: R.() -> List<E>?): List<PreWriteEntry<R>> {
         TODO()
     }
 }

@@ -78,11 +78,11 @@ class CORM<T : Any>(
         val map = all.groupBy { it.isKey }
         val keyEntries = map[true] ?: emptyList()
         val collectionParamaters = classParameter.parameters.filter { it.type.typeName().isCollection() }
-        collectionParamaters.map { listHeader(keyEntries,it.type.arguments[0].type) }
+        val x = collectionParamaters.map { { listHeader(keyEntries, it.type.arguments[0].type) } }
         ObjectRelationalHeaderData(
             keyEntries,
             map[false] ?: emptyList(),
-            noNative.map { it.mapper.objectRelationalHeader })// + listOf(listHeader(keyEntries, )))
+            noNative.map { { it.mapper.objectRelationalHeader } } + x)
     }
 
     override val objectRelationalWriter: ObjectRelationalWriterData<T> by lazy {
