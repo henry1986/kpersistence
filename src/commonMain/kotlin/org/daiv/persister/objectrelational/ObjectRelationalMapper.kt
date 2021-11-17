@@ -82,6 +82,18 @@ interface ClassParseable {
         "List", "Set", "Map" -> true
         else -> false
     }
+    fun String?.isList() = when (this) {
+        "List" -> true
+        else -> false
+    }
+    fun String?.isSet() = when (this) {
+        "Set" -> true
+        else -> false
+    }
+    fun String?.isMap() = when (this) {
+        "Map" -> true
+        else -> false
+    }
 }
 
 interface ObjectRelationalMapper<T> : ClassParseable {

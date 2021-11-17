@@ -21,7 +21,7 @@ class TestComplexObject {
         val headerData = ObjectRelationalHeaderData(
             listOf(HeadEntry("id", "Int", true)),
             listOf(HeadEntry("comment", "String", false), HeadEntry("s_x", "Int", false)),
-            listOf(simpleMapper.objectRelationalHeader)
+            listOf { simpleMapper.objectRelationalHeader }
         )
         assertEquals(headerData, header)
     }
@@ -65,14 +65,14 @@ class TestComplexObject {
 //        assertEquals(writerData, writer.list.map { it as ObjectRelationalWriterMap })
     }
 
-    @Test
-    fun testKeysComplex() = runTest {
-        val keys = calculationMap.createKeys(ClassParameterImpl(ComplexObject::class))
-        assertEquals(
-            mapOf(SimpleObject::class to SimpleObject::class),
-            keys.map { it.key to it.value.classParameter.clazz }.toMap()
-        )
-    }
+//    @Test
+//    fun testKeysComplex() = runTest {
+//        val keys = calculationMap.createKeys(ClassParameterImpl(ComplexObject::class))
+//        assertEquals(
+//            mapOf(SimpleObject::class to SimpleObject::class),
+//            keys.map { it.key to it.value.classParameter.clazz }.toMap()
+//        )
+//    }
 
     @Test
     fun testRead() = runTest {

@@ -5,11 +5,11 @@ import kotlin.test.assertEquals
 import kotlin.test.assertNotEquals
 
 class ObjectRelationalHeaderTest {
-    data class TestSimple  public constructor (val x: Int, val y: String) {
+    data class TestSimple public constructor(val x: Int, val y: String) {
 
         companion object : ObjectRelationalMapper<TestSimple> {
             override fun hashCodeX(t: TestSimple) = t.x * 31
-            override val objectRelationalHeader : ObjectRelationalHeader by lazy {
+            override val objectRelationalHeader: ObjectRelationalHeader by lazy {
                 val keyEntries = listOf("x".headIntKey())
                 ObjectRelationalHeaderData(
                     keyEntries,
@@ -18,96 +18,96 @@ class ObjectRelationalHeaderTest {
                 )
             }
             override val objectRelationalWriter: ObjectRelationalWriter<TestSimple> by lazy {
-                val keys = listOf("x".writeKey<TestSimple>{ x })
+                val keys = listOf("x".writeKey<TestSimple> { x })
                 ObjectRelationalWriterData(
                     keys,
-                    listOf("x".writeValue<TestSimple>{ x }),
+                    listOf("x".writeValue<TestSimple> { x }),
                     listOf()
                 )
             }
 
             override val objectRelationalReader: ObjectRelationalReader<TestSimple> by lazy {
-                val keys = listOf("x".readInt() )
+                val keys = listOf("x".readInt())
                 ObjectRelationalReaderData(
                     "TestSimple",
                     keys,
-                    listOf("x".readInt() )
+                    listOf("x".readInt())
                 ) { TestSimple(get(0), get(1)) }
             }
 
         }
     }
 
-     data class TestComplex  public constructor (val p: Int, val x: Float, val s: TestSimple) {
+    data class TestComplex public constructor(val p: Int, val x: Float, val s: TestSimple) {
 
         companion object : ObjectRelationalMapper<TestComplex> {
             override fun hashCodeX(t: TestComplex) = t.p * 31
-            override val objectRelationalHeader : ObjectRelationalHeader by lazy {
+            override val objectRelationalHeader: ObjectRelationalHeader by lazy {
                 val keyEntries = listOf("p".headIntKey())
                 ObjectRelationalHeaderData(
                     keyEntries,
                     listOf("p".headInt()),
-                    listOf(TestSimple.objectRelationalHeader)
+                    listOf({TestSimple.objectRelationalHeader})
                 )
             }
             override val objectRelationalWriter: ObjectRelationalWriter<TestComplex> by lazy {
-                val keys = listOf("p".writeKey<TestComplex>{ p })
+                val keys = listOf("p".writeKey<TestComplex> { p })
                 ObjectRelationalWriterData(
                     keys,
-                    listOf("p".writeValue<TestComplex>{ p }),
+                    listOf("p".writeValue<TestComplex> { p }),
                     listOf(TestSimple.writerMap { s })
                 )
             }
 
             override val objectRelationalReader: ObjectRelationalReader<TestComplex> by lazy {
-                val keys = listOf("p".readInt() )
+                val keys = listOf("p".readInt())
                 ObjectRelationalReaderData(
                     "TestComplex",
                     keys,
-                    listOf("p".readInt() )
+                    listOf("p".readInt())
                 ) { TestComplex(get(0), get(1), get(2)) }
             }
 
         }
     }
 
-    data class TestListComplex  public constructor (val p: Int, val x: Float, val list: List<TestSimple>) {
+    data class TestListComplex public constructor(val p: Int, val x: Float, val list: List<TestSimple>) {
 
         companion object : ObjectRelationalMapper<TestListComplex> {
             override fun hashCodeX(t: TestListComplex) = t.p * 31
-            override val objectRelationalHeader : ObjectRelationalHeader by lazy {
+            override val objectRelationalHeader: ObjectRelationalHeader by lazy {
                 val keyEntries = listOf("p".headIntKey())
                 ObjectRelationalHeaderData(
                     keyEntries,
                     listOf("p".headInt()),
-                    listOf(listHeader(keyEntries.prefix("ref_"), TestSimple.objectRelationalHeader))
+                    listOf({ listHeader(keyEntries.prefix("ref_"), TestSimple.objectRelationalHeader) })
                 )
             }
             override val objectRelationalWriter: ObjectRelationalWriter<TestListComplex> by lazy {
-                val keys = listOf("p".writeKey<TestListComplex>{ p })
+                val keys = listOf("p".writeKey<TestListComplex> { p })
                 ObjectRelationalWriterData(
                     keys,
-                    listOf("p".writeValue<TestListComplex>{ p }),
+                    listOf("p".writeValue<TestListComplex> { p }),
                     listOf(TestSimple.writerListMap { list })
                 )
             }
 
             override val objectRelationalReader: ObjectRelationalReader<TestListComplex> by lazy {
-                val keys = listOf("p".readInt() )
+                val keys = listOf("p".readInt())
                 ObjectRelationalReaderData(
                     "TestListComplex",
                     keys,
-                    listOf("p".readInt() )
+                    listOf("p".readInt())
                 ) { TestListComplex(get(0), get(1), get(2)) }
             }
         }
     }
 
-    data class TestHashCode public constructor (val x: Int, val y: String) {
+    data class TestHashCode public constructor(val x: Int, val y: String) {
 
         companion object : ObjectRelationalMapper<TestHashCode> {
             override fun hashCodeX(t: TestHashCode) = t.x * 31
-            override val objectRelationalHeader : ObjectRelationalHeader by lazy {
+            override val objectRelationalHeader: ObjectRelationalHeader by lazy {
                 val keyEntries = hashCodeEntries()
                 ObjectRelationalHeaderData(
                     keyEntries,
@@ -119,7 +119,7 @@ class ObjectRelationalHeaderTest {
                 val keys = HashCodeWriteEntry.asKey(TestHashCode)
                 ObjectRelationalWriterData(
                     keys,
-                    listOf("x".writeValue<TestHashCode>{ x }, "y".writeValue<TestHashCode>{ y }),
+                    listOf("x".writeValue<TestHashCode> { x }, "y".writeValue<TestHashCode> { y }),
                     listOf()
                 )
             }
@@ -129,7 +129,7 @@ class ObjectRelationalHeaderTest {
                 ObjectRelationalReaderData(
                     "TestHashCode",
                     keys,
-                    listOf("x".readInt() , "y".readString() )
+                    listOf("x".readInt(), "y".readString())
                 ) { TestHashCode(get(0), get(1)) }
             }
         }
@@ -231,7 +231,11 @@ class ObjectRelationalHeaderTest {
     fun testListEquals() {
         val l = ListObjectReader(TestListComplex.objectRelationalReader, emptyList(), TestSimple.objectRelationalReader)
         val l2 =
-            ListObjectReader(TestListComplex.objectRelationalReader, listOf(ReadEntryTask("5") { 6 }), TestSimple.objectRelationalReader)
+            ListObjectReader(
+                TestListComplex.objectRelationalReader,
+                listOf(ReadEntryTask("5") { 6 }),
+                TestSimple.objectRelationalReader
+            )
         assertEquals(l, l2)
     }
 

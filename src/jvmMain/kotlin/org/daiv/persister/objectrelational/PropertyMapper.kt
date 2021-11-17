@@ -42,7 +42,22 @@ class CalculationMap(val scopeContextable: ScopeContextable = DefaultScopeContex
     suspend fun <T : Any> createNoNative(clazz: KClass<T>): List<PropertyMapper<T, Any?>> =
         withContext(scopeContextable.context) {
             (clazz.primaryConstructor?.parameters?.map {
-                it to it.type.type<Any>()
+                val type = it.type.type<Any>()
+                val nextType = when {
+                    type.simpleName.isNative() -> type
+                    type.simpleName.isList() || type.simpleName.isSet() -> {
+                        val type = it.type.arguments[0].type!!
+                        if(type.typeName().isNative()){
+
+                        } else {
+
+                        }
+                        type.type()
+                    }
+                    type.simpleName.isMap() -> it.type.arguments[0].type!!.type()
+                    else -> null
+                }
+                it to nextType!!
             }
                 ?: throw NullPointerException("there is no argument or no primary constructor for clazz: $clazz"))
                 .filter { !it.second.simpleName.isNative() && !it.second.simpleName.isCollection() }.asFlow()
@@ -51,16 +66,19 @@ class CalculationMap(val scopeContextable: ScopeContextable = DefaultScopeContex
                 }.toList()
         }
 
-    suspend fun createKeys(classParameter: ClassParameter<*>): Map<KClass<*>, CORM<out Any>> {
+    fun createKeys(classParameter: ClassParameter<*>): Map<KClass<*>, () -> CORM<out Any>> {
         val filter = classParameter.parameters.filter {
+
             val typeName = it.type.typeName() ?: throw NullPointerException("did not find a typeName for $it")
             !typeName.isNative() && !typeName.isCollection()
         }
         println("filter:$filter")
         return filter.associate {
             val type = it.type.utype()
-            val corm = getValue(type)
-            type to corm
+            type to {
+                calculationCollection.tryDirectGet(type)
+                    ?: throw NullPointerException("type $type was currently not created")
+            }
         }
     }
 }
