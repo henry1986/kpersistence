@@ -9,16 +9,14 @@ import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
 import org.daiv.persister.table.runTest
 import org.junit.Test
-import kotlin.reflect.KClass
 import kotlin.reflect.full.declaredMemberProperties
-import kotlin.reflect.jvm.isAccessible
 import kotlin.test.assertEquals
 
 class ReflectionObjectRelationalMapperTest {
 
     data class SimpleObject(val x: Int, val y: String)
 
-    private val calculationMap = CalculationMap()
+    private val calculationMap = CormMap()
 
     @Test
     fun testReflection() {

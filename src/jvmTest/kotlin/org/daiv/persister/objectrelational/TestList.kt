@@ -1,38 +1,61 @@
 package org.daiv.persister.objectrelational
 
-import kotlinx.coroutines.GlobalScope
-import kotlinx.coroutines.delay
-import kotlinx.coroutines.launch
+import org.daiv.persister.objectrelational.ReflectionObjectRelationalMapperTest.*
 import org.daiv.persister.table.runTest
-import org.daiv.time.isoTime
 import org.junit.Test
 import kotlin.reflect.KTypeProjection
 import kotlin.reflect.full.createType
-import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.full.starProjectedType
 import kotlin.test.assertEquals
 
 class TestList {
 
+    data class ReverseA(val b: Int, val rb: ReverseB)
+    data class ReverseB(val a: Int, val rA: ReverseA)
+
+    data class ComplexObject(val id: SimpleObject, val comment: String, val s: SimpleObject)
+    data class Complex2Object(val id: Int, val comment: String, val c: ComplexObject)
+
     data class SimpleList(val x: Int, val list: List<Int>)
 
-    private val calculationMap = CalculationMap()
+    private val calculationMap = CormMap()
+    private val chdMap = CHDMap()
+
+    @Test
+    fun testComplex() = runTest {
+        val clz = Complex2Object::class
+        val chd = chdMap.getAndJoin(clz)
+        val head = chd.head(null, false)
+        println("head: $head")
+    }
+
+    @Test
+    fun testReverse() = runTest {
+        val reverseA = ReverseA::class
+        val header = chdMap.getAndJoin(reverseA)
+        val head = header.head(null, false)
+        println("head: $head")
+
+    }
 
     @Test
     fun testParameter() {
-        val x = ClassHeaderData.toParameters(SimpleList::class)
+        val x = ClassHeaderData.toParameters(SimpleList::class, chdMap)
         assertEquals(
             ClassHeaderData(
                 SimpleList::class,
                 listOf(
-                    SimpleParameter("x", Int::class.starProjectedType, {}),
+                    SimpleParameter(SimpleList::class, "x", Int::class.starProjectedType, chdMap, {}),
                     ParameterWithOneGeneric(
+                        SimpleList::class,
                         "list",
                         List::class.createType(listOf(KTypeProjection.invariant(Int::class.starProjectedType))),
+                        chdMap,
                         Int::class.starProjectedType,
                         {}
                     )
-                )
+                ),
+                chdMap
             ), x
         )
         val p = x.parameters[1]

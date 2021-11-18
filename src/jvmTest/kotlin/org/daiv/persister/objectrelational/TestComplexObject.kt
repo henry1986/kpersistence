@@ -12,7 +12,7 @@ import kotlin.test.assertTrue
 class TestComplexObject {
     data class ComplexObject(val id: Int, val comment: String, val s: SimpleObject)
 
-    private val calculationMap = CalculationMap()
+    private val calculationMap = CormMap()
 
     @Test
     fun testHeader() = runTest {

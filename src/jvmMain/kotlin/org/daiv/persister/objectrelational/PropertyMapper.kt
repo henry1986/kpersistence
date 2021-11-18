@@ -30,8 +30,43 @@ fun <T : Any> KType.type() = classifier as KClass<T>
 fun KType.utype() = classifier as KClass<*>
 fun KType.typeName() = type<Any>().simpleName
 
-class CalculationMap(val scopeContextable: ScopeContextable = DefaultScopeContextable()) : ClassParseable {
-    val calculationCollection = CalculationSuspendableMap<KClass<*>, CORM<*>>("") { it.objectRelationMapper(this) }
+class CHDMap(val scopeContextable: ScopeContextable = DefaultScopeContextable()) : ClassParseable {
+    val calculationCollection: CalculationSuspendableMap<KClass<*>, ClassHeaderData> =
+        CalculationSuspendableMap<KClass<*>, ClassHeaderData>("") {
+            val header = ClassHeaderData.toParameters(it, this)
+            header.dependentClasses().map { launch(it) }
+            header
+        }
+
+    private fun launch(clazz: KClass<*>) {
+        calculationCollection.launchOnNotExistence(clazz) {}
+    }
+
+    suspend fun getValue(clazz: KClass<*>): ClassHeaderData {
+        return calculationCollection.getValue(clazz)
+    }
+
+    suspend fun getAndJoin(clazz: KClass<*>): ClassHeaderData {
+        val value = getValue(clazz)
+        join()
+        return value
+    }
+
+    suspend fun join() {
+        calculationCollection.join()
+    }
+
+    fun directGet(clazz: KClass<*>): ClassHeaderData {
+        return calculationCollection.tryDirectGet(clazz)
+            ?: throw NullPointerException("for class $clazz is no classHeaderData created")
+    }
+}
+
+class CormMap(val scopeContextable: ScopeContextable = DefaultScopeContextable()) : ClassParseable {
+    val calculationCollection = CalculationSuspendableMap<KClass<*>, CORM<*>>("") {
+        it.objectRelationMapper(this)
+    }
+
     suspend fun <T : Any> getValue(clazz: KClass<T>): CORM<T> {
         return calculationCollection.getValue(clazz) as CORM<T>
     }
@@ -47,7 +82,7 @@ class CalculationMap(val scopeContextable: ScopeContextable = DefaultScopeContex
                     type.simpleName.isNative() -> type
                     type.simpleName.isList() || type.simpleName.isSet() -> {
                         val type = it.type.arguments[0].type!!
-                        if(type.typeName().isNative()){
+                        if (type.typeName().isNative()) {
 
                         } else {
 
