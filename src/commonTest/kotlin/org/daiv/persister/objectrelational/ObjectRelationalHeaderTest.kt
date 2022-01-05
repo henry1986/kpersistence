@@ -46,7 +46,7 @@ class ObjectRelationalHeaderTest {
                 val keyEntries = listOf("p".headIntKey())
                 ObjectRelationalHeaderData(
                     keyEntries,
-                    listOf("p".headInt()),
+                    listOf("x".headFloat()) + TestSimple.objectRelationalHeader.keyHead("s"),
                     listOf({TestSimple.objectRelationalHeader})
                 )
             }
@@ -136,7 +136,7 @@ class ObjectRelationalHeaderTest {
     }
 
     fun ObjectRelationalHeader.createTable(): String {
-        val head = keyHead(null) + head()
+        val head = keyHead(null) + headOthers()
         val createTable = head.map { "${it.name} ${it.type}" }.joinToString(", ", "CREATE TABLE TestComplex (", ");")
         return createTable
     }

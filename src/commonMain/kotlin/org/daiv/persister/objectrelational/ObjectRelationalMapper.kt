@@ -1,7 +1,5 @@
 package org.daiv.persister.objectrelational
 
-import kotlin.reflect.KClass
-
 fun Boolean.hashCodeX() = if (this) 1231 else 1237
 fun Long.hashCodeX() = (this xor (this shr 32)).toInt()
 fun Double.hashCodeX() = toRawBits().hashCodeX()
@@ -264,7 +262,7 @@ interface PrefixBuilder {
 }
 
 interface ObjectRelationalHeader : PrefixBuilder {
-    fun head(): List<HeadEntry>
+    fun headOthers(): List<HeadEntry>
     fun keyHead(prefix: String?): List<HeadEntry>
     fun subHeader(plainTaskReceiver: PlainTaskReceiver, task: (ObjectRelationalHeader) -> Unit)
 }
@@ -287,7 +285,7 @@ data class ObjectRelationalHeaderData(
     val others: List<HeadEntry>,
     val headers: List<() -> ObjectRelationalHeader>
 ) : ObjectRelationalHeader {
-    override fun head(): List<HeadEntry> {
+    override fun headOthers(): List<HeadEntry> {
         return others
     }
 

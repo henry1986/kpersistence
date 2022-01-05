@@ -1,7 +1,7 @@
 package org.daiv.persister.objectrelational
 
 import org.daiv.persister.objectrelational.ReflectionObjectRelationalMapperTest.*
-import org.daiv.persister.table.runTest
+import org.daiv.persister.runTest
 import org.junit.Test
 import kotlin.reflect.KTypeProjection
 import kotlin.reflect.full.createType

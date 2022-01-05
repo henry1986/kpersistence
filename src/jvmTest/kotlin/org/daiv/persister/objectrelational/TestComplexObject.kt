@@ -4,7 +4,7 @@ import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.channels.Channel
 import kotlinx.coroutines.launch
 import org.daiv.persister.objectrelational.ReflectionObjectRelationalMapperTest.*
-import org.daiv.persister.table.runTest
+import org.daiv.persister.runTest
 import org.junit.Test
 import kotlin.test.assertEquals
 import kotlin.test.assertTrue

@@ -7,7 +7,7 @@ import kotlinx.coroutines.flow.map
 import kotlinx.coroutines.flow.toList
 import kotlinx.coroutines.launch
 import kotlinx.coroutines.runBlocking
-import org.daiv.persister.table.runTest
+import org.daiv.persister.runTest
 import org.junit.Test
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.test.assertEquals
@@ -40,7 +40,7 @@ class ReflectionObjectRelationalMapperTest {
     fun testSimpleHeader() = runTest {
         val mapper = SimpleObject::class.objectRelationMapper(calculationMap).objectRelationalHeader
         val head = listOf(HeadEntry("x", "Int", true), HeadEntry("y", "String", false))
-        assertEquals(head, mapper.head())
+        assertEquals(head.drop(1), mapper.headOthers())
         assertEquals(head.take(1), mapper.keyHead(null))
         assertEquals(head.take(1).map { it.copy("s_${it.name}") }, mapper.keyHead("s"))
     }
@@ -48,7 +48,10 @@ class ReflectionObjectRelationalMapperTest {
     @Test
     fun testWrite() = runTest {
         val mapper = SimpleObject::class.objectRelationMapper(calculationMap).objectRelationalWriter
+        val writerData = ObjectRelationalWriterData<SimpleObject>(listOf(), listOf(), listOf())
+
         val s = SimpleObject(5, "Hello")
+
         val keys = mapper.writeKey(null, s, HashCodeCounterGetter.nullGetter)
         val others = mapper.write(emptyList(), s, HashCodeCounterGetter.nullGetter)
         assertEquals(listOf(WriteEntry("x", 5, true)), keys)

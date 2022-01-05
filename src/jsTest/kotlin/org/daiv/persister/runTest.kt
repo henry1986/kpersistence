@@ -1,4 +1,4 @@
-package org.daiv.persister.table
+package org.daiv.persister
 
 import kotlinx.coroutines.GlobalScope
 import kotlinx.coroutines.promise
