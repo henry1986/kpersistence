@@ -1,6 +1,5 @@
 package org.daiv.persister.objectrelational
 
-import org.daiv.persister.objectrelational.ReflectionObjectRelationalMapperTest.*
 import org.daiv.persister.runTest
 import org.junit.Test
 import kotlin.reflect.KTypeProjection
@@ -41,12 +40,12 @@ class TestList {
 
     @Test
     fun testParameter() {
-        val x = ClassHeaderData.toParameters(SimpleList::class, chdMap)
+        val x = JClassHeaderData.toParameters(SimpleList::class, chdMap)
         assertEquals(
-            ClassHeaderData(
+            JClassHeaderData(
                 SimpleList::class,
                 listOf(
-                    SimpleParameter(SimpleList::class, "x", Int::class.starProjectedType, chdMap, {}),
+                    SimpleJParameter(SimpleList::class, "x", Int::class.starProjectedType, chdMap, {}),
                     ParameterWithOneGeneric(
                         SimpleList::class,
                         "list",
@@ -78,6 +77,7 @@ class TestList {
         val header = SimpleList::class.objectRelationMapper(calculationMap).objectRelationalHeader
         val head = listOf(HeadEntry("x", "Int", true))
         val headerData = ObjectRelationalHeaderData(
+            SimpleJParameter.fromKParameter()
             head,
             emptyList(),
             listOf()

@@ -1,6 +1,12 @@
 package org.daiv.persister.objectrelational
 
+import org.daiv.coroutines.CalculationSuspendableMap
+import org.daiv.coroutines.DefaultScopeContextable
+import org.daiv.coroutines.ScopeContextable
+import org.daiv.persister.MoreKeysData
 import kotlin.reflect.KClass
+import kotlin.reflect.KType
+import kotlin.reflect.typeOf
 
 fun Boolean.hashCodeX() = if (this) 1231 else 1237
 fun Long.hashCodeX() = (this xor (this shr 32)).toInt()
@@ -82,21 +88,91 @@ interface ClassParseable {
         "List", "Set", "Map" -> true
         else -> false
     }
+
     fun String?.isList() = when (this) {
         "List" -> true
         else -> false
     }
+
     fun String?.isSet() = when (this) {
         "Set" -> true
         else -> false
     }
+
     fun String?.isMap() = when (this) {
         "Map" -> true
         else -> false
     }
-
-
 }
+
+class CHDMap(
+    val chdFactory: (KClass<*>, CHDMap) -> ClassHeaderData,
+    val scopeContextable: ScopeContextable = DefaultScopeContextable()
+) : ClassParseable {
+    val calculationCollection: CalculationSuspendableMap<KClass<*>, ClassHeaderData> =
+        CalculationSuspendableMap("") {
+            val header = chdFactory(it, this)
+            header.dependentClasses().map { launch(it) }
+            header
+        }
+
+    private fun launch(clazz: KClass<*>) {
+        calculationCollection.launchOnNotExistence(clazz) {}
+    }
+
+    suspend fun getValue(clazz: KClass<*>): ClassHeaderData {
+        return calculationCollection.getValue(clazz)
+    }
+
+    suspend fun getAndJoin(clazz: KClass<*>): ClassHeaderData {
+        val value = getValue(clazz)
+        join()
+        return value
+    }
+
+    suspend fun join() {
+        calculationCollection.join()
+    }
+
+    fun directGet(clazz: KClass<*>): ClassHeaderData {
+        return calculationCollection.tryDirectGet(clazz)
+            ?: throw NullPointerException("for class $clazz is no classHeaderData created")
+    }
+}
+
+class ClassHeaderData(
+    val clazz: KClass<*>,
+    val parameters: List<Parameter>,
+    val moreKeys: MoreKeysData,
+) {
+    val keyParameters = parameters.take(moreKeys.amount)
+    val otherParameters = parameters.drop(moreKeys.amount)
+    fun keyHead(prefix: String?, isKey: Boolean): List<HeadEntry> {
+        return keyParameters.flatMap { it.head(prefix, isKey) }
+    }
+
+    fun head(prefix: String?, isKey: Boolean): List<HeadEntry> {
+        return otherParameters.flatMap { it.head(prefix, isKey) }
+    }
+
+    fun dependentClasses() = parameters.flatMap { it.dependentClasses() }
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || this::class != other::class) return false
+
+        other as ClassHeaderData
+
+        if (clazz != other.clazz) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return clazz.hashCode()
+    }
+}
+
 
 interface ObjectRelationalMapper<T> : ClassParseable {
     fun hashCodeX(t: T): Int
@@ -240,7 +316,7 @@ data class DefaultPreWriteEntry<T>(val name: String, override val isKey: Boolean
     }
 
     override fun toString(): String {
-        return "DefaultPreWriteEntry('$name', ${if(isKey) "isKey" else "noKey"})"
+        return "DefaultPreWriteEntry('$name', ${if (isKey) "isKey" else "noKey"})"
     }
 
 }
@@ -290,8 +366,10 @@ interface PrefixBuilder {
 }
 
 interface ObjectRelationalHeader : PrefixBuilder {
+    val classHeaderData: ClassHeaderData
     fun headOthers(): List<HeadEntry>
     fun keyHead(prefix: String?): List<HeadEntry>
+    fun allHeads(prefix: String?) = keyHead(prefix) + headOthers()
     fun subHeader(plainTaskReceiver: PlainTaskReceiver, task: (ObjectRelationalHeader) -> Unit)
 }
 
@@ -309,6 +387,7 @@ interface ObjectRelationalWriter<T> : PrefixBuilder {
 fun List<HeadEntry>.prefix(prefix: String?) = map { it.withPrefix(prefix) }
 
 data class ObjectRelationalHeaderData(
+    override val classHeaderData: ClassHeaderData,
     val keyEntries: List<HeadEntry>,
     val others: List<HeadEntry>,
     val headers: List<() -> ObjectRelationalHeader>
@@ -338,7 +417,6 @@ data class ObjectRelationalWriterMap<R, T>(val objectRelationalWriter: ObjectRel
     override suspend fun sub(r: R, keys: List<WriteEntry>, taskReceiver: TaskReceiver) {
         taskReceiver.task(r.func(), keys, objectRelationalWriter)
     }
-
 
 
     override fun equals(other: Any?): Boolean {
@@ -449,6 +527,13 @@ data class ObjectRelationalWriterData<T>(
 //    }
 //}
 
+class CodeGenHelper<T : Any>(val clazz: KClass<T>) {
+    private val map = CHDMap({ x, y -> throw RuntimeException("no classHeaderData should be requested") })
+
+    fun simple(name: String, type: KType) = SimpleParameter(clazz, name, type, map)
+
+}
+
 data class TestXZ(val a: Int, val b: String) {
     fun hashCodeX() = Companion.hashCodeX(this)
 
@@ -457,7 +542,13 @@ data class TestXZ(val a: Int, val b: String) {
         override fun hashCodeX(o: TestXZ) = o.a * 31 + o.b.hashCodeX() * 31
 
         override val objectRelationalHeader: ObjectRelationalHeader by lazy {
+            val cgh = CodeGenHelper(TestXZ::class)
             ObjectRelationalHeaderData(
+                ClassHeaderData(
+                    cgh.clazz,
+                    listOf(cgh.simple("a", typeOf<Int>()), cgh.simple("b", typeOf<String>())),
+                    MoreKeysData(1)
+                ),
                 listOf(HeadEntry("a", "Int", true)),
                 listOf(HeadEntry("b", "String", false)),
                 emptyList()
@@ -625,7 +716,7 @@ inline class ReadMethod(val list: List<ReadEntry>) {
     }
 }
 
-data class ObjectRelationalReaderData<T:Any>(
+data class ObjectRelationalReaderData<T : Any>(
     val clazz: KClass<T>,
     val keys: List<ReadEntryTask>,
     val others: List<ReadEntryTask>,

@@ -13,6 +13,7 @@ import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.primaryConstructor
 
 class CormMap(val scopeContextable: ScopeContextable = DefaultScopeContextable()) : ClassParseable {
+    val chdMap = CHDMap(JClassHeaderData::toParameters)
     val calculationCollection = CalculationSuspendableMap<KClass<*>, CORM<*>>("") {
         it.objectRelationMapper(this)
     }
