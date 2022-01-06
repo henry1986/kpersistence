@@ -29,7 +29,7 @@ class ObjectRelationalHeaderTest {
             override val objectRelationalReader: ObjectRelationalReader<TestSimple> by lazy {
                 val keys = listOf("x".readInt())
                 ObjectRelationalReaderData(
-                    "TestSimple",
+                    TestSimple::class,
                     keys,
                     listOf("x".readInt())
                 ) { TestSimple(get(0), get(1)) }
@@ -62,7 +62,7 @@ class ObjectRelationalHeaderTest {
             override val objectRelationalReader: ObjectRelationalReader<TestComplex> by lazy {
                 val keys = listOf("p".readInt())
                 ObjectRelationalReaderData(
-                    "TestComplex",
+                    TestComplex::class,
                     keys,
                     listOf("p".readInt())
                 ) { TestComplex(get(0), get(1), get(2)) }
@@ -95,7 +95,7 @@ class ObjectRelationalHeaderTest {
             override val objectRelationalReader: ObjectRelationalReader<TestListComplex> by lazy {
                 val keys = listOf("p".readInt())
                 ObjectRelationalReaderData(
-                    "TestListComplex",
+                    TestListComplex::class,
                     keys,
                     listOf("p".readInt())
                 ) { TestListComplex(get(0), get(1), get(2)) }
@@ -127,7 +127,7 @@ class ObjectRelationalHeaderTest {
             override val objectRelationalReader: ObjectRelationalReader<TestHashCode> by lazy {
                 val keys = hashCodeRead()
                 ObjectRelationalReaderData(
-                    "TestHashCode",
+                    TestHashCode::class,
                     keys,
                     listOf("x".readInt(), "y".readString())
                 ) { TestHashCode(get(0), get(1)) }

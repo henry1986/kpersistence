@@ -1,5 +1,7 @@
 package org.daiv.persister.objectrelational
 
+import kotlin.reflect.KClass
+
 fun Boolean.hashCodeX() = if (this) 1231 else 1237
 fun Long.hashCodeX() = (this xor (this shr 32)).toInt()
 fun Double.hashCodeX() = toRawBits().hashCodeX()
@@ -92,6 +94,8 @@ interface ClassParseable {
         "Map" -> true
         else -> false
     }
+
+
 }
 
 interface ObjectRelationalMapper<T> : ClassParseable {
@@ -216,6 +220,29 @@ data class DefaultPreWriteEntry<T>(val name: String, override val isKey: Boolean
     }
 
     override fun rebuild(isKey: Boolean) = copy(isKey = isKey)
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || this::class != other::class) return false
+
+        other as DefaultPreWriteEntry<*>
+
+        if (name != other.name) return false
+        if (isKey != other.isKey) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        var result = name.hashCode()
+        result = 31 * result + isKey.hashCode()
+        return result
+    }
+
+    override fun toString(): String {
+        return "DefaultPreWriteEntry('$name', ${if(isKey) "isKey" else "noKey"})"
+    }
+
 }
 
 interface TaskReceiver {
@@ -255,6 +282,7 @@ interface NativeReads {
 interface ObjectRelationalReader<T> {
     fun read(readCollection: ReadCollection): T
     fun readKey(readCollection: ReadCollection): List<ReadEntry>
+
 }
 
 interface PrefixBuilder {
@@ -310,6 +338,28 @@ data class ObjectRelationalWriterMap<R, T>(val objectRelationalWriter: ObjectRel
     override suspend fun sub(r: R, keys: List<WriteEntry>, taskReceiver: TaskReceiver) {
         taskReceiver.task(r.func(), keys, objectRelationalWriter)
     }
+
+
+
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || this::class != other::class) return false
+
+        other as ObjectRelationalWriterMap<*, *>
+
+        if (objectRelationalWriter != other.objectRelationalWriter) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return objectRelationalWriter.hashCode()
+    }
+
+    override fun toString(): String {
+        return "ObjectRelationalWriterMap($objectRelationalWriter)"
+    }
+
 }
 
 data class ObjectRelationalWriterReceiverMap<R, T>(
@@ -424,7 +474,7 @@ data class TestXZ(val a: Int, val b: String) {
 
         override val objectRelationalReader: ObjectRelationalReader<TestXZ> by lazy {
             ObjectRelationalReaderData<TestXZ>(
-                "TestXZ",
+                TestXZ::class,
                 listOf(ReadEntryTask("a") { nativeReads.readInt() }),
                 listOf(ReadEntryTask("b") { nativeReads.readString() })
             ) { TestXZ(get(0) as Int, get(1) as String) }
@@ -456,7 +506,7 @@ data class TestComplex(val a: Int, val t: TestXZ) {
 
         override val objectRelationalReader: ObjectRelationalReader<TestComplex> by lazy {
             ObjectRelationalReaderData(
-                "TestComplex",
+                TestComplex::class,
                 listOf("a".readInt()),
                 listOf("t".request(TestXZ.objectRelationalReader))
             ) { TestComplex(get(0) as Int, get(1) as TestXZ) }
@@ -497,7 +547,7 @@ data class ComplexList(val x: Int, val l: List<TestXZ>) {
 
         override val objectRelationalReader: ObjectRelationalReader<ComplexList> by lazy {
             val keys = listOf("x".readInt())
-            ObjectRelationalReaderData("ComplexList", keys, listOf("l".requestList(TestXZ, keys))) {
+            ObjectRelationalReaderData(ComplexList::class, keys, listOf("l".requestList(TestXZ, keys))) {
                 ComplexList(
                     get(0),
                     get(1)
@@ -512,8 +562,8 @@ data class ListHolderEx(val l: List<TestXZ>) {
         fun hashCodeX(t: ListHolderEx) = t.l.hashCodeX { TestXZ.hashCodeX(this) }
 
         val objectRelationalReader: ObjectRelationalReader<ListHolderEx> by lazy {
-            ObjectRelationalReaderData<ListHolderEx>(
-                "ListHolderEx",
+            ObjectRelationalReaderData(
+                ListHolderEx::class,
                 emptyList(),
                 listOf(ReadEntryTask("l") {
                     dataRequester.requestData(
@@ -536,6 +586,26 @@ data class ReadEntryTask(val name: String, val func: ReadCollection.(List<ReadEn
     fun toReadData(readCollection: ReadCollection, keys: List<ReadEntry>) = ReadEntry(readCollection.func(keys))
     fun readKey(readCollection: ReadCollection) = ReadEntry(readCollection.func(emptyList()))
 
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || this::class != other::class) return false
+
+        other as ReadEntryTask
+
+        if (name != other.name) return false
+
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return name.hashCode()
+    }
+
+    override fun toString(): String {
+        return "ReadEntryTask('$name')"
+    }
+
+
     companion object {
         fun readInt(name: String) = ReadEntryTask(name) { nativeReads.readInt() }
     }
@@ -555,15 +625,15 @@ inline class ReadMethod(val list: List<ReadEntry>) {
     }
 }
 
-data class ObjectRelationalReaderData<T>(
-    val name: String,
+data class ObjectRelationalReaderData<T:Any>(
+    val clazz: KClass<T>,
     val keys: List<ReadEntryTask>,
     val others: List<ReadEntryTask>,
     val builder: ReadMethod.() -> T
 ) : ObjectRelationalReader<T> {
 
     /**
-     * reads keys first, and than other values. Builds the object at the end
+     * reads keys first, and then other values. Builds the object at the end
      */
     override fun read(readCollection: ReadCollection): T {
         val keysRead = readKey(readCollection)
@@ -589,7 +659,29 @@ data class ObjectRelationalReaderData<T>(
 //        return listOf(ReadEntry(readData.readInt()))
     }
 
-    override fun toString(): String {
-        return name
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || this::class != other::class) return false
+
+        other as ObjectRelationalReaderData<*>
+
+        if (clazz != other.clazz) return false
+        if (keys != other.keys) return false
+        if (others != other.others) return false
+
+        return true
     }
+
+    override fun hashCode(): Int {
+        var result = clazz.hashCode()
+        result = 31 * result + keys.hashCode()
+        result = 31 * result + others.hashCode()
+        return result
+    }
+
+    override fun toString(): String {
+        return "ObjectRelationalReaderData(${clazz.simpleName}, $keys, noKeys=$others)"
+    }
+
+
 }

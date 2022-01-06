@@ -14,7 +14,8 @@ import kotlin.test.assertEquals
 
 class ReflectionObjectRelationalMapperTest {
 
-    data class SimpleObject(val x: Int, val y: String)
+    private data class SimpleObject(val x: Int, val y: String)
+    private data class ComplexObject(val cx: Int, val s: SimpleObject)
 
     private val calculationMap = CormMap()
 
@@ -48,16 +49,27 @@ class ReflectionObjectRelationalMapperTest {
     @Test
     fun testWrite() = runTest {
         val mapper = SimpleObject::class.objectRelationMapper(calculationMap).objectRelationalWriter
-        val writerData = ObjectRelationalWriterData<SimpleObject>(listOf(), listOf(), listOf())
-
-        val s = SimpleObject(5, "Hello")
-
-        val keys = mapper.writeKey(null, s, HashCodeCounterGetter.nullGetter)
-        val others = mapper.write(emptyList(), s, HashCodeCounterGetter.nullGetter)
-        assertEquals(listOf(WriteEntry("x", 5, true)), keys)
-        assertEquals(listOf(WriteRow(listOf(WriteEntry("y", "Hello", false)))), others)
+        val writerData =
+            ObjectRelationalWriterData<SimpleObject>(
+                listOf(DefaultPreWriteEntry("x", true) {}),
+                listOf(DefaultPreWriteEntry("y", false) {}),
+                listOf()
+            )
+        assertEquals(writerData, mapper)
     }
 
+    @Test
+    fun testWriteComplex() = runTest {
+        val simpleMapper = calculationMap.getValue(SimpleObject::class)
+        val mapper = ComplexObject::class.objectRelationMapper(calculationMap).objectRelationalWriter
+        val writerData =
+            ObjectRelationalWriterData<ComplexObject>(
+                listOf(DefaultPreWriteEntry("cx", true) { cx }),
+                listOf(DefaultPreWriteEntry("s_x", false) { s }),
+                listOf(ObjectRelationalWriterMap(simpleMapper.objectRelationalWriter) { s })
+            )
+        assertEquals(writerData, mapper)
+    }
 
     fun List<Any>.nativeReads() = ListNativeReads(listOf(this), 0, 0)
 
@@ -70,11 +82,22 @@ class ReflectionObjectRelationalMapperTest {
     @Test
     fun testRead() = runTest {
         val reader = SimpleObject::class.objectRelationMapper(calculationMap).objectRelationalReader
-        val read = listOf(5, "Hello")
-        val readCollection = ReadCollection(read.nativeReads(), dataRequester)
-        val key = reader.readKey(readCollection)
-        assertEquals(listOf(ReadEntry(5)), key)
-        val others = reader.read(ReadCollection(read.nativeReads(), dataRequester))
-        assertEquals(SimpleObject(5, "Hello"), others)
+        val readerData = ObjectRelationalReaderData(
+            SimpleObject::class,
+            listOf(ReadEntryTask("x") {}),
+            listOf(ReadEntryTask("y") {})
+        ) { SimpleObject(5, "Hello") }
+        assertEquals(readerData, reader)
+    }
+
+    @Test
+    fun testReadComplex() = runTest {
+        val reader = ComplexObject::class.objectRelationMapper(calculationMap).objectRelationalReader
+        val readerData = ObjectRelationalReaderData(
+            ComplexObject::class,
+            listOf(ReadEntryTask("cx") {}),
+            listOf(ReadEntryTask("s") {})
+        ) { ComplexObject(9, SimpleObject(5, "Hello")) }
+        assertEquals(readerData, reader)
     }
 }

@@ -37,6 +37,7 @@ interface JavaParseable<T : Any> : ClassParseable {
                 }
             }
         }.flatten()
+
 }
 
 interface ParameterBuilder : ClassParseable {
@@ -385,7 +386,7 @@ class CORM<T : Any>(
                 }
                 clazz.objectInstance ?: clazz.primaryConstructor!!.call(*array)
             }
-        ObjectRelationalReaderData(clazz.simpleName ?: "no class name", keys, others, builder)
+        ObjectRelationalReaderData(clazz, keys, others, builder)
     }
 }
 

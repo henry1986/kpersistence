@@ -10,7 +10,8 @@ import kotlin.test.assertEquals
 import kotlin.test.assertTrue
 
 class TestComplexObject {
-    data class ComplexObject(val id: Int, val comment: String, val s: SimpleObject)
+    private data class SimpleObject(val x: Int, val y: String)
+    private data class ComplexObject(val id: Int, val comment: String, val s: SimpleObject)
 
     private val calculationMap = CormMap()
 

@@ -10,13 +10,14 @@ import kotlin.test.assertEquals
 
 class TestList {
 
-    data class ReverseA(val b: Int, val rb: ReverseB)
-    data class ReverseB(val a: Int, val rA: ReverseA)
+    private data class ReverseA(val b: Int, val rb: ReverseB)
+    private data class ReverseB(val a: Int, val rA: ReverseA)
 
-    data class ComplexObject(val id: SimpleObject, val comment: String, val s: SimpleObject)
-    data class Complex2Object(val id: Int, val comment: String, val c: ComplexObject)
+    private data class SimpleObject(val x: Int, val y: String)
+    private data class ComplexObject(val id: SimpleObject, val comment: String, val s: SimpleObject)
+    private data class Complex2Object(val id: Int, val comment: String, val c: ComplexObject)
 
-    data class SimpleList(val x: Int, val list: List<Int>)
+    private data class SimpleList(val x: Int, val list: List<Int>)
 
     private val calculationMap = CormMap()
     private val chdMap = CHDMap()
