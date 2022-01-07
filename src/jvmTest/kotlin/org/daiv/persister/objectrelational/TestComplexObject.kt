@@ -17,12 +17,15 @@ class TestComplexObject {
 
     @Test
     fun testHeader() = runTest {
-        val simpleMapper = calculationMap.getValue(SimpleObject::class)
+        val genHelper = CodeGenHelper(SimpleObject::class, mapOf())
+        val simpleMapper = calculationMap.getValue(genHelper.clazz)
         val header = ComplexObject::class.objectRelationMapper(calculationMap).objectRelationalHeader
-        
+        val head = genHelper.simpleKeyHead<Int>("id")
+        val headComment = genHelper.simpleHead<String>("comment")
+        val s_x = genHelper.simpleHead<Int>("s_X")
         val headerData = ObjectRelationalHeaderData(
-            listOf(HeadEntry("id", "Int", true)),
-            listOf(HeadEntry("comment", "String", false), HeadEntry("s_x", "Int", false)),
+            listOf(head),
+            listOf(headComment, s_x),
             listOf { simpleMapper.objectRelationalHeader }
         )
         assertEquals(headerData, header)

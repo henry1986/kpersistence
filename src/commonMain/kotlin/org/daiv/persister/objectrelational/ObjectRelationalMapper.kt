@@ -554,7 +554,21 @@ class CodeGenHelper<T : Any>(val clazz: KClass<T>, val classHeaderMap: Map<KClas
         CHDMap({ x, _ -> classHeaderMap[x]?.invoke() ?: throw RuntimeException("no classHeaderData for $x found") })
 
     inline fun <reified T> simple(name: String) = SimpleParameter(clazz, name, typeOf<T>(), KeyType.NO_KEY, map)
+    inline fun <reified T> simpleHead(name: String) :HeadEntry {
+        val p = simple<T>(name)
+        return HeadEntry(p, name, p.type.typeName()!!, false)
+    }
+    inline fun <reified T> simpleKeyHead(name: String) :HeadEntry {
+        val p = simple<T>(name)
+        return HeadEntry(p, name, p.type.typeName()!!, true)
+    }
     inline fun <reified T> simpleKey(name: String) = SimpleParameter(clazz, name, typeOf<T>(), KeyType.NORM, map)
+
+    inline fun <reified T> listHead(name: String): HeadEntry {
+        val p =  ParameterWithOneGeneric(clazz, name, typeOf<List<T>>(), KeyType.NO_KEY, map, typeOf<T>())
+        return HeadEntry(p, name, p.type.typeName()!!, false)
+    }
+
     inline fun <reified T> list(name: String) =
         ParameterWithOneGeneric(clazz, name, typeOf<List<T>>(), KeyType.NO_KEY, map, typeOf<T>())
 

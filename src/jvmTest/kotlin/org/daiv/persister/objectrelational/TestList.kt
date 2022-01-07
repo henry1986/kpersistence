@@ -27,7 +27,7 @@ class TestList {
     fun testComplex() = runTest {
         val clz = Complex2Object::class
         val chd = chdMap.getAndJoin(clz)
-        val head = chd.head(null, false)
+        val head = chd.head(null, false, emptyList())
         println("head: $head")
     }
 
@@ -35,7 +35,7 @@ class TestList {
     fun testReverse() = runTest {
         val reverseA = ReverseA::class
         val header = chdMap.getAndJoin(reverseA)
-        val head = header.head(null, false)
+        val head = header.head(null, false, emptyList())
         println("head: $head")
 
     }
@@ -47,11 +47,12 @@ class TestList {
             ClassHeaderData(
                 SimpleList::class,
                 listOf(
-                    SimpleParameter(SimpleList::class, "x", Int::class.starProjectedType, chdMap),
+                    SimpleParameter(SimpleList::class, "x", Int::class.starProjectedType,KeyType.NORM, chdMap),
                     ParameterWithOneGeneric(
                         SimpleList::class,
                         "list",
                         List::class.createType(listOf(KTypeProjection.invariant(Int::class.starProjectedType))),
+                        KeyType.NO_KEY,
                         chdMap,
                         Int::class.starProjectedType
                     )
@@ -73,7 +74,8 @@ class TestList {
     @Test
     fun testHead() = runTest {
         val header = SimpleList::class.objectRelationMapper(calculationMap).objectRelationalHeader
-        val head = listOf(HeadEntry("x", "Int", true))
+        val codeGenHelper = CodeGenHelper(SimpleList::class, mapOf())
+        val head:List<HeadEntry> = listOf(codeGenHelper.listHead<Int>("x"))
         val headerData = ObjectRelationalHeaderData(
             head,
             emptyList(),
