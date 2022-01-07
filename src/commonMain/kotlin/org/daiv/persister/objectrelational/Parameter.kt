@@ -1,5 +1,6 @@
 package org.daiv.persister.objectrelational
 
+import org.daiv.persister.MoreKeysData
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 
@@ -7,10 +8,24 @@ fun KType.utype() = classifier as KClass<*>
 fun <T : Any> KType.type() = classifier as KClass<T>
 fun KType.typeName() = type<Any>().simpleName
 
+enum class KeyType {
+    NO_KEY, NORM;
+
+    val isKey: Boolean
+        get() = this != NO_KEY
+
+    companion object {
+        fun keyType(index: Int, moreKeysData: MoreKeysData): KeyType {
+            return if (index < moreKeysData.amount) NORM else NO_KEY
+        }
+    }
+}
+
 interface Parameter : ClassParseable, PrefixBuilder {
     val receiverClass: KClass<*>
     val name: String
     val type: KType
+    val isKey: KeyType
     val chdMap: CHDMap
 
     fun isNative(): Boolean = type.typeName().isNative()
@@ -22,7 +37,7 @@ interface Parameter : ClassParseable, PrefixBuilder {
 
     fun genericNotNativeType(): List<KType>
     fun dependentClasses(): List<KClass<*>>
-    fun head(prefix: String?, isKey: Boolean): List<HeadEntry>
+    fun head(prefix: String?, isKey: Boolean, parameter: List<Parameter>): List<HeadEntry>
     fun runEquals(other: Any?): Boolean {
         if (this === other) return true
         if (other == null || this::class != other::class) return false
@@ -48,18 +63,19 @@ class SimpleParameter(
     override val receiverClass: KClass<*>,
     override val name: String,
     override val type: KType,
+    override val isKey: KeyType,
     override val chdMap: CHDMap
 ) : Parameter {
 
     override fun genericNotNativeType(): List<KType> = emptyList()
 
     override fun dependentClasses() = if (isNative()) emptyList() else listOf(type.utype())
-    override fun head(prefix: String?, isKey: Boolean): List<HeadEntry> {
+    override fun head(prefix: String?, isKey: Boolean, parameters: List<Parameter>): List<HeadEntry> {
         val prefixedName = prefix.build(name)
         return if (isNative()) {
-            listOf(HeadEntry(prefixedName, type.typeName()!!, isKey))
+            listOf(HeadEntry(parameters + this, prefixedName, type.typeName()!!, isKey))
         } else {
-            chdMap.directGet(type.utype()).keyHead(prefixedName, isKey)
+            chdMap.directGet(type.utype()).keyHead(prefixedName, isKey, parameters + this)
         }
     }
 
@@ -71,11 +87,12 @@ class ParameterWithOneGeneric(
     override val receiverClass: KClass<*>,
     override val name: String,
     override val type: KType,
+    override val isKey: KeyType,
     override val chdMap: CHDMap,
     val genericType: KType,
 ) : Parameter {
 
-    override fun head(prefix: String?, isKey: Boolean): List<HeadEntry> {
+    override fun head(prefix: String?, isKey: Boolean, parameters: List<Parameter>): List<HeadEntry> {
         return emptyList()
     }
 
@@ -95,12 +112,13 @@ class ParameterWithTwoGenerics(
     override val receiverClass: KClass<*>,
     override val name: String,
     override val type: KType,
+    override val isKey: KeyType,
     override val chdMap: CHDMap,
     val genericType: KType,
     val genericType2: KType,
 ) : Parameter {
 
-    override fun head(prefix: String?, isKey: Boolean): List<HeadEntry> {
+    override fun head(prefix: String?, isKey: Boolean, parameters: List<Parameter>): List<HeadEntry> {
         return emptyList()
     }
 

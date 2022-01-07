@@ -51,21 +51,26 @@ interface ParameterBuilder : ClassParseable {
 
 object JClassHeaderData : ClassParseable {
     fun toParameters(clazz: KClass<*>, chdMap: CHDMap): ClassHeaderData {
-        val x = clazz.primaryConstructor!!.parameters.map {
+        val moreKeys: MoreKeysData = clazz.findAnnotation<MoreKeys>().default()
+        val x = clazz.primaryConstructor!!.parameters.mapIndexed { i, it ->
             val prop = clazz.declaredMemberProperties.find { parameter -> it.name == parameter.name }!!
             when {
                 !it.type.typeName().isCollection() ->
-                    SimpleJParameter.fromKParameter(clazz, it, chdMap)
+                    SimpleJParameter.fromKParameter(
+                        clazz,
+                        it,
+                        KeyType.keyType(i, moreKeys),
+                        chdMap
+                    )
                 it.type.typeName().isList() || it.type.typeName().isSet() -> {
-                    JParameterWithOneGeneric.fromKParameter(clazz, it, prop, chdMap)
+                    JParameterWithOneGeneric.fromKParameter(clazz, it,KeyType.keyType(i, moreKeys), chdMap)
                 }
                 it.type.typeName().isMap() ->
-                    JParameterWithTwoGenerics.fromKParameter(clazz, it, prop, chdMap)
+                    JParameterWithTwoGenerics.fromKParameter(clazz, it,KeyType.keyType(i, moreKeys),  chdMap)
                 else -> throw RuntimeException("unknown type: $it")
             }
         }
-        val moreKeys: MoreKeysData = clazz.findAnnotation<MoreKeys>().default()
-        return ClassHeaderData(clazz, x, moreKeys, chdMap)
+        return ClassHeaderData(clazz, x, moreKeys)
     }
 }
 
@@ -73,28 +78,31 @@ object SimpleJParameter : ParameterBuilder {
     fun fromKParameter(
         receiverClass: KClass<*>,
         parameter: KParameter,
+        isKey: KeyType,
         chdMap: CHDMap
     ): SimpleParameter {
         return SimpleParameter(
             receiverClass,
             parameter.name!!,
             parameter.type,
+            isKey,
             chdMap,
         )
     }
 }
 
 object JParameterWithOneGeneric : ParameterBuilder {
-    fun <T : Any> fromKParameter(
+    fun fromKParameter(
         receiverClass: KClass<*>,
         parameter: KParameter,
-        prop: KProperty1<T, *>,
+        keyType: KeyType,
         chdMap: CHDMap
     ): ParameterWithOneGeneric {
         return ParameterWithOneGeneric(
             receiverClass,
             parameter.name!!,
             parameter.type,
+            keyType,
             chdMap,
             parameter.type.arguments[0].type!!,
         )
@@ -103,16 +111,17 @@ object JParameterWithOneGeneric : ParameterBuilder {
 
 
 object JParameterWithTwoGenerics : ParameterBuilder {
-    fun <T : Any> fromKParameter(
+    fun fromKParameter(
         receiverClass: KClass<*>,
         parameter: KParameter,
-        prop: KProperty1<T, *>,
+        keyType: KeyType,
         chdMap: CHDMap
     ): ParameterWithTwoGenerics {
         return ParameterWithTwoGenerics(
             receiverClass,
             parameter.name!!,
             parameter.type,
+            keyType,
             chdMap,
             parameter.type.arguments[0].type!!,
             parameter.type.arguments[1].type!!,
@@ -137,11 +146,12 @@ class ClassParameterImpl<T : Any>(override val clazz: KClass<T>) : ClassParamete
 
 class CORM<T : Any>(
     val classParameter: ClassParameter<T>,
-    val classHeaderData: ClassHeaderData,
+    override val classHeaderData: ClassHeaderData,
     override val noNative: List<PropertyMapper<T, Any?>>,
     val keys: Map<KClass<*>, () -> CORM<out Any>>,
 
     ) : ObjectRelationalMapper<T>, JavaParseable<T>, ClassParameter<T> by classParameter {
+
     fun Collection<KParameter>.noCollectionMembers() =
         filter { !it.type.typeName().isCollection() }
 
@@ -153,11 +163,11 @@ class CORM<T : Any>(
         val all = classHeaderData.parameters.mapIndexed { i, it ->
             val typeName = it.type.typeName()!!
             val x = when {
-                typeName.isNative() -> listOf(HeadEntry(it.name!!, typeName, moreKeys.amount > i))
+                typeName.isNative() -> listOf(HeadEntry(it, it.name!!, typeName, moreKeys.amount > i))
                 typeName.isCollection() -> emptyList()
                 else -> it.name!!.headValue(noNative.find { propertyMapper ->
                     propertyMapper.p.returnType.type<Any>() == it.type.type<Any>()
-                }!!.mapper)
+                }!!.mapper, it)
             }
             x
         }.flatten()
@@ -168,7 +178,6 @@ class CORM<T : Any>(
             classHeaderData.parameters.flatMap { it.genericNotNativeType() }
 //        val x = collectionParamaters.map { { listHeader(keyEntries) } }
         ObjectRelationalHeaderData(
-            classHeaderData,
             keyEntries,
             map[false] ?: emptyList(),
             noNative.map { { it.mapper.objectRelationalHeader } })

@@ -1,5 +1,6 @@
 package org.daiv.persister.objectrelational
 
+import org.daiv.persister.MoreKeysData
 import org.daiv.persister.runTest
 import org.junit.Test
 import kotlin.reflect.KTypeProjection
@@ -19,7 +20,8 @@ class TestList {
     private data class SimpleList(val x: Int, val list: List<Int>)
 
     private val calculationMap = CormMap()
-    private val chdMap = CHDMap()
+    val codeGenHelper = CodeGenHelper(TestList::class, mapOf())
+    private val chdMap = codeGenHelper.map
 
     @Test
     fun testComplex() = runTest {
@@ -42,25 +44,21 @@ class TestList {
     fun testParameter() {
         val x = JClassHeaderData.toParameters(SimpleList::class, chdMap)
         assertEquals(
-            JClassHeaderData(
+            ClassHeaderData(
                 SimpleList::class,
                 listOf(
-                    SimpleJParameter(SimpleList::class, "x", Int::class.starProjectedType, chdMap, {}),
+                    SimpleParameter(SimpleList::class, "x", Int::class.starProjectedType, chdMap),
                     ParameterWithOneGeneric(
                         SimpleList::class,
                         "list",
                         List::class.createType(listOf(KTypeProjection.invariant(Int::class.starProjectedType))),
                         chdMap,
-                        Int::class.starProjectedType,
-                        {}
+                        Int::class.starProjectedType
                     )
                 ),
-                chdMap
+                MoreKeysData(1)
             ), x
         )
-        val p = x.parameters[1]
-        val s = SimpleList(5, listOf(2))
-        assertEquals(listOf(2), p.propGetter(s))
     }
 
 //    @Test
@@ -77,7 +75,6 @@ class TestList {
         val header = SimpleList::class.objectRelationMapper(calculationMap).objectRelationalHeader
         val head = listOf(HeadEntry("x", "Int", true))
         val headerData = ObjectRelationalHeaderData(
-            SimpleJParameter.fromKParameter()
             head,
             emptyList(),
             listOf()

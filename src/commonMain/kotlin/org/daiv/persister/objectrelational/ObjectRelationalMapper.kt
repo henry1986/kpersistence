@@ -13,8 +13,8 @@ fun Long.hashCodeX() = (this xor (this shr 32)).toInt()
 fun Double.hashCodeX() = toRawBits().hashCodeX()
 fun String.hashCodeX(): Int {
     var hash = 1
-    for (i in (0 until length)) {
-        hash += get(i).toInt() * 31
+    for (i in (indices)) {
+        hash += get(i).code * 31
     }
     return hash
 }
@@ -31,11 +31,29 @@ interface NoKeyEntry<T> : IsKeyInterface<T> {
     fun asKey(): T = rebuild(true)
 }
 
-data class HeadEntry(val name: String, val type: String, override val isKey: Boolean) : NoKeyEntry<HeadEntry>,
+data class HeadEntry(
+    val parameterList: List<Parameter>,
+    val name: String,
+    val type: String,
+    override val isKey: Boolean
+) :
+    NoKeyEntry<HeadEntry>,
     PrefixBuilder {
+
+    constructor(parameter: Parameter, name: String, type: String, isKey: Boolean) : this(
+        listOf(parameter),
+        name,
+        type,
+        isKey
+    )
+
+    val current
+        get() = parameterList.last()
+
     override fun rebuild(isKey: Boolean): HeadEntry = copy(isKey = isKey)
 
-    fun withPrefix(prefix: String?) = copy(name = prefix.build(name))
+    fun withPrefix(prefix: String?, parameter: Parameter?) =
+        copy(parameterList = parameter?.let { parameterList + it } ?: parameterList, name = prefix.build(name))
 }
 
 data class WriteEntry(val name: String, val value: Any?, override val isKey: Boolean) : NoKeyEntry<WriteEntry> {
@@ -147,12 +165,12 @@ class ClassHeaderData(
 ) {
     val keyParameters = parameters.take(moreKeys.amount)
     val otherParameters = parameters.drop(moreKeys.amount)
-    fun keyHead(prefix: String?, isKey: Boolean): List<HeadEntry> {
-        return keyParameters.flatMap { it.head(prefix, isKey) }
+    fun keyHead(prefix: String?, isKey: Boolean, parameter: List<Parameter>): List<HeadEntry> {
+        return keyParameters.flatMap { it.head(prefix, isKey, parameter) }
     }
 
-    fun head(prefix: String?, isKey: Boolean): List<HeadEntry> {
-        return otherParameters.flatMap { it.head(prefix, isKey) }
+    fun head(prefix: String?, isKey: Boolean, parameter: List<Parameter>): List<HeadEntry> {
+        return otherParameters.flatMap { it.head(prefix, isKey, parameter) }
     }
 
     fun dependentClasses() = parameters.flatMap { it.dependentClasses() }
@@ -176,12 +194,15 @@ class ClassHeaderData(
 
 interface ObjectRelationalMapper<T> : ClassParseable {
     fun hashCodeX(t: T): Int
+
+    val classHeaderData: ClassHeaderData
     val objectRelationalHeader: ObjectRelationalHeader
     val objectRelationalWriter: ObjectRelationalWriter<T>
     val objectRelationalReader: ObjectRelationalReader<T>
 
     fun hashCodeRead() = listOf("autoId".readInt(), "autoId_counter".readInt())
-    fun hashCodeEntries() = listOf(HeadEntry("autoId", "Int", true), HeadEntry("autoId_counter", "Int", true))
+    fun hashCodeEntries(parameter: Parameter) =
+        listOf(HeadEntry(parameter, "autoId", "Int", true), HeadEntry(parameter, "autoId_counter", "Int", true))
 
     fun <T> String.writeKey(func: T.() -> Any?) = DefaultPreWriteEntry(this, true, func)
     fun <T> String.writeValue(func: T.() -> Any?) = DefaultPreWriteEntry(this, false, func)
@@ -225,27 +246,30 @@ interface ObjectRelationalMapper<T> : ClassParseable {
             dataRequester.requestData(it, reader)
         }
 
-    fun <T> String.headValue(mapper: ObjectRelationalMapper<T>) = mapper.objectRelationalHeader.keyHead(this).noKey()
-    fun <T> String.headKey(mapper: ObjectRelationalMapper<T>) = mapper.objectRelationalHeader.keyHead(this).asKey()
+    fun <T> String.headValue(mapper: ObjectRelationalMapper<T>, parameter: Parameter) =
+        mapper.objectRelationalHeader.keyHead(this, parameter).noKey()
 
-    fun <T> ObjectRelationalMapper<T>.headList(keys: List<HeadEntry>) =
-        listHeader(keys.prefix("ref_"), this.objectRelationalHeader)
+    fun <T> String.headKey(mapper: ObjectRelationalMapper<T>, parameter: Parameter) =
+        mapper.objectRelationalHeader.keyHead(this, parameter).asKey()
 
-    fun String.headInt() = HeadEntry(this, "Int", false)
-    fun String.headString() = HeadEntry(this, "String", false)
-    fun String.headDouble() = HeadEntry(this, "Double", false)
-    fun String.headFloat() = HeadEntry(this, "Float", false)
-    fun String.headChar() = HeadEntry(this, "Char", false)
-    fun String.headShort() = HeadEntry(this, "Short", false)
-    fun String.headLong() = HeadEntry(this, "Long", false)
+    fun <T> ObjectRelationalMapper<T>.headList(keys: List<HeadEntry>, parameter: Parameter) =
+        listHeader(keys.prefix("ref_", parameter), this.objectRelationalHeader)
 
-    fun String.headIntKey() = HeadEntry(this, "Int", true)
-    fun String.headStringKey() = HeadEntry(this, "String", true)
-    fun String.headDoubleKey() = HeadEntry(this, "Double", true)
-    fun String.headFloatKey() = HeadEntry(this, "Float", true)
-    fun String.headCharKey() = HeadEntry(this, "Char", true)
-    fun String.headShortKey() = HeadEntry(this, "Short", true)
-    fun String.headLongKey() = HeadEntry(this, "Long", true)
+    fun String.headInt(parameter: Parameter) = HeadEntry(parameter, this, "Int", false)
+    fun String.headString(parameter: Parameter) = HeadEntry(parameter, this, "String", false)
+    fun String.headDouble(parameter: Parameter) = HeadEntry(parameter, this, "Double", false)
+    fun String.headFloat(parameter: Parameter) = HeadEntry(parameter, this, "Float", false)
+    fun String.headChar(parameter: Parameter) = HeadEntry(parameter, this, "Char", false)
+    fun String.headShort(parameter: Parameter) = HeadEntry(parameter, this, "Short", false)
+    fun String.headLong(parameter: Parameter) = HeadEntry(parameter, this, "Long", false)
+
+    fun String.headIntKey(parameter: Parameter) = HeadEntry(parameter, this, "Int", true)
+    fun String.headStringKey(parameter: Parameter) = HeadEntry(parameter, this, "String", true)
+    fun String.headDoubleKey(parameter: Parameter) = HeadEntry(parameter, this, "Double", true)
+    fun String.headFloatKey(parameter: Parameter) = HeadEntry(parameter, this, "Float", true)
+    fun String.headCharKey(parameter: Parameter) = HeadEntry(parameter, this, "Char", true)
+    fun String.headShortKey(parameter: Parameter) = HeadEntry(parameter, this, "Short", true)
+    fun String.headLongKey(parameter: Parameter) = HeadEntry(parameter, this, "Long", true)
 }
 
 data class HashCodeWriteEntry<T, S> private constructor(
@@ -366,10 +390,9 @@ interface PrefixBuilder {
 }
 
 interface ObjectRelationalHeader : PrefixBuilder {
-    val classHeaderData: ClassHeaderData
     fun headOthers(): List<HeadEntry>
-    fun keyHead(prefix: String?): List<HeadEntry>
-    fun allHeads(prefix: String?) = keyHead(prefix) + headOthers()
+    fun keyHead(prefix: String?, parameter: Parameter?): List<HeadEntry>
+    fun allHeads(prefix: String?, parameter: Parameter) = keyHead(prefix, parameter) + headOthers()
     fun subHeader(plainTaskReceiver: PlainTaskReceiver, task: (ObjectRelationalHeader) -> Unit)
 }
 
@@ -384,10 +407,9 @@ interface ObjectRelationalWriter<T> : PrefixBuilder {
     suspend fun subs(t: T, taskReceiver: TaskReceiver, hashCodeCounterGetter: HashCodeCounterGetter)
 }
 
-fun List<HeadEntry>.prefix(prefix: String?) = map { it.withPrefix(prefix) }
+fun List<HeadEntry>.prefix(prefix: String?, parameter: Parameter?) = map { it.withPrefix(prefix, parameter) }
 
 data class ObjectRelationalHeaderData(
-    override val classHeaderData: ClassHeaderData,
     val keyEntries: List<HeadEntry>,
     val others: List<HeadEntry>,
     val headers: List<() -> ObjectRelationalHeader>
@@ -396,8 +418,8 @@ data class ObjectRelationalHeaderData(
         return others
     }
 
-    override fun keyHead(prefix: String?): List<HeadEntry> {
-        return keyEntries.prefix(prefix)
+    override fun keyHead(prefix: String?, parameter: Parameter?): List<HeadEntry> {
+        return keyEntries.prefix(prefix, parameter)
     }
 
     override fun subHeader(plainTaskReceiver: PlainTaskReceiver, task: (ObjectRelationalHeader) -> Unit) {
@@ -527,10 +549,17 @@ data class ObjectRelationalWriterData<T>(
 //    }
 //}
 
-class CodeGenHelper<T : Any>(val clazz: KClass<T>) {
-    private val map = CHDMap({ x, y -> throw RuntimeException("no classHeaderData should be requested") })
+class CodeGenHelper<T : Any>(val clazz: KClass<T>, val classHeaderMap: Map<KClass<*>, () -> ClassHeaderData>) {
+    val map =
+        CHDMap({ x, _ -> classHeaderMap[x]?.invoke() ?: throw RuntimeException("no classHeaderData for $x found") })
 
-    fun simple(name: String, type: KType) = SimpleParameter(clazz, name, type, map)
+    inline fun <reified T> simple(name: String) = SimpleParameter(clazz, name, typeOf<T>(), KeyType.NO_KEY, map)
+    inline fun <reified T> simpleKey(name: String) = SimpleParameter(clazz, name, typeOf<T>(), KeyType.NORM, map)
+    inline fun <reified T> list(name: String) =
+        ParameterWithOneGeneric(clazz, name, typeOf<List<T>>(), KeyType.NO_KEY, map, typeOf<T>())
+
+    inline fun <reified T> listKey(name: String) =
+        ParameterWithOneGeneric(clazz, name, typeOf<List<T>>(), KeyType.NORM, map, typeOf<T>())
 
 }
 
@@ -538,19 +567,22 @@ data class TestXZ(val a: Int, val b: String) {
     fun hashCodeX() = Companion.hashCodeX(this)
 
     companion object : ObjectRelationalMapper<TestXZ> {
-
+        val cgh = CodeGenHelper(TestXZ::class, mapOf())
         override fun hashCodeX(o: TestXZ) = o.a * 31 + o.b.hashCodeX() * 31
+        val p1 = cgh.simpleKey<Int>("a")
+        val p2 = cgh.simple<String>("b")
+        override val classHeaderData by lazy {
+            ClassHeaderData(
+                cgh.clazz,
+                listOf(p1, p2),
+                MoreKeysData(1)
+            )
+        }
 
         override val objectRelationalHeader: ObjectRelationalHeader by lazy {
-            val cgh = CodeGenHelper(TestXZ::class)
             ObjectRelationalHeaderData(
-                ClassHeaderData(
-                    cgh.clazz,
-                    listOf(cgh.simple("a", typeOf<Int>()), cgh.simple("b", typeOf<String>())),
-                    MoreKeysData(1)
-                ),
-                listOf(HeadEntry("a", "Int", true)),
-                listOf(HeadEntry("b", "String", false)),
+                listOf(HeadEntry(p1, "a", "Int", true)),
+                listOf(HeadEntry(p2, "b", "String", false)),
                 emptyList()
             )
         }
@@ -564,7 +596,7 @@ data class TestXZ(val a: Int, val b: String) {
         }
 
         override val objectRelationalReader: ObjectRelationalReader<TestXZ> by lazy {
-            ObjectRelationalReaderData<TestXZ>(
+            ObjectRelationalReaderData(
                 TestXZ::class,
                 listOf(ReadEntryTask("a") { nativeReads.readInt() }),
                 listOf(ReadEntryTask("b") { nativeReads.readString() })
@@ -579,10 +611,20 @@ data class TestComplex(val a: Int, val t: TestXZ) {
     companion object : ObjectRelationalMapper<TestComplex> {
         override fun hashCodeX(t: TestComplex) = t.a * 31
 
+        val cgh by lazy { CodeGenHelper(TestComplex::class, mapOf(TestXZ::class to { TestXZ.classHeaderData })) }
+        val p1 = cgh.simpleKey<Int>("a")
+        val p2 = cgh.simple<TestXZ>("t")
+        override val classHeaderData by lazy {
+            ClassHeaderData(
+                cgh.clazz,
+                listOf(p1, p2),
+                MoreKeysData(1)
+            )
+        }
         override val objectRelationalHeader: ObjectRelationalHeader by lazy {
             ObjectRelationalHeaderData(
-                listOf("a".headInt()),
-                "t".headValue(TestXZ),
+                listOf("a".headInt(p1)),
+                "t".headValue(TestXZ, p2),
                 listOf({ TestXZ.objectRelationalHeader })
             )
         }
@@ -605,33 +647,35 @@ data class TestComplex(val a: Int, val t: TestXZ) {
     }
 }
 
-data class SimpleEntry<T>(
-    val name: String,
-    val type: String,
-    val isKey: Boolean,
-    val func: T.() -> Any?,
-    val readFunc: ReadCollection.(List<ReadEntry>) -> Any?
-) {
-}
-
 data class ComplexList(val x: Int, val l: List<TestXZ>) {
     companion object : ObjectRelationalMapper<ComplexList> {
 
         override fun hashCodeX(t: ComplexList) = t.x * 31 + t.l.hashCodeX { TestXZ.hashCodeX(this) }
 
+        val cgh by lazy { CodeGenHelper(ComplexList::class, mapOf(TestXZ::class to { TestXZ.classHeaderData })) }
+        val p1 = cgh.simpleKey<Int>("x")
+        val p2 = cgh.list<TestXZ>("l")
+        override val classHeaderData by lazy {
+            ClassHeaderData(
+                cgh.clazz,
+                listOf(p1, p2),
+                MoreKeysData(1)
+            )
+        }
+
         override val objectRelationalHeader: ObjectRelationalHeader by lazy {
-            val keyEntries = listOf("x".headIntKey())
+            val keyEntries = listOf("x".headIntKey(p1))
             ObjectRelationalHeaderData(
                 keyEntries,
                 emptyList(),
-                listOf({ TestXZ.headList(keyEntries) })
+                listOf({ TestXZ.headList(keyEntries, p2) })
             )
         }
 
         override val objectRelationalWriter: ObjectRelationalWriter<ComplexList> by lazy {
             ObjectRelationalWriterData(
                 listOf("x".writeKey { x }),
-                emptyList<PreWriteEntry<ComplexList>>(),
+                emptyList(),
                 listOf(TestXZ.writerListMap { l })
             )
         }
@@ -639,10 +683,7 @@ data class ComplexList(val x: Int, val l: List<TestXZ>) {
         override val objectRelationalReader: ObjectRelationalReader<ComplexList> by lazy {
             val keys = listOf("x".readInt())
             ObjectRelationalReaderData(ComplexList::class, keys, listOf("l".requestList(TestXZ, keys))) {
-                ComplexList(
-                    get(0),
-                    get(1)
-                )
+                ComplexList(get(0), get(1))
             }
         }
     }

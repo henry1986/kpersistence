@@ -62,8 +62,8 @@ fun <T> List<T>.hashCodeX(hashCodeX: T.(Int) -> Int): Int {
 
 fun listHeader(masterEntries: List<HeadEntry>, elementMapper: ObjectRelationalHeader) =
     ObjectRelationalHeaderData(
-        masterEntries + HeadEntry("index", "Int", true),
-        elementMapper.keyHead("value_").noKey(),
+        masterEntries + HeadEntry(masterEntries.first().parameterList.last(), "index", "Int", true),
+        elementMapper.keyHead("value_", null).noKey(),
         listOf({ elementMapper })
     )
 

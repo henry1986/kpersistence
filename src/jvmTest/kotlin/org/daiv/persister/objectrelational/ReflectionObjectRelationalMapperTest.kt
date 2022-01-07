@@ -10,6 +10,7 @@ import kotlinx.coroutines.runBlocking
 import org.daiv.persister.runTest
 import org.junit.Test
 import kotlin.reflect.full.declaredMemberProperties
+import kotlin.reflect.typeOf
 import kotlin.test.assertEquals
 
 class ReflectionObjectRelationalMapperTest {
@@ -39,11 +40,15 @@ class ReflectionObjectRelationalMapperTest {
 
     @Test
     fun testSimpleHeader() = runTest {
-        val mapper = SimpleObject::class.objectRelationMapper(calculationMap).objectRelationalHeader
-        val head = listOf(HeadEntry("x", "Int", true), HeadEntry("y", "String", false))
-        assertEquals(head.drop(1), mapper.headOthers())
-        assertEquals(head.take(1), mapper.keyHead(null))
-        assertEquals(head.take(1).map { it.copy("s_${it.name}") }, mapper.keyHead("s"))
+        val mapper = SimpleObject::class.objectRelationMapper(calculationMap)
+        val header = mapper.objectRelationalHeader
+        val chdMap = mapper.classHeaderData.parameters.first().chdMap
+        val p1 = SimpleParameter(SimpleObject::class, "x", typeOf<Int>(), KeyType.NORM, chdMap)
+        val p2 = SimpleParameter(SimpleObject::class, "y", typeOf<String>(), KeyType.NO_KEY, chdMap)
+        val head = listOf(HeadEntry(p1, "x", "Int", true), HeadEntry(p2, "y", "String", false))
+        assertEquals(head.drop(1), header.headOthers())
+        assertEquals(head.take(1), header.keyHead(null, p2))
+        assertEquals(head.take(1).map { it.copy(name = "s_${it.name}") }, header.keyHead("s", p2))
     }
 
     @Test

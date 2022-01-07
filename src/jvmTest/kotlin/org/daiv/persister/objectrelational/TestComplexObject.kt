@@ -19,6 +19,7 @@ class TestComplexObject {
     fun testHeader() = runTest {
         val simpleMapper = calculationMap.getValue(SimpleObject::class)
         val header = ComplexObject::class.objectRelationMapper(calculationMap).objectRelationalHeader
+        
         val headerData = ObjectRelationalHeaderData(
             listOf(HeadEntry("id", "Int", true)),
             listOf(HeadEntry("comment", "String", false), HeadEntry("s_x", "Int", false)),

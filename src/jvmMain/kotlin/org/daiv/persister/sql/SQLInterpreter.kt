@@ -7,8 +7,10 @@ class SQLInterpreter<T : Any>(val objectRelationalMapper: ObjectRelationalMapper
 
     fun select(tableName: String, propertyNames: List<String>): String {
         val whereClause = propertyNames.joinToString(" AND ") { "$it = ?" }
-        val n = objectRelationalMapper.objectRelationalHeader.allHeads(null)
-        println("r: $n")
+        val p = objectRelationalMapper.classHeaderData.parameters
+        val parameters = propertyNames.map { property ->
+            p.find { property == it.name } ?: throw RuntimeException("did not find a parameter with name $property")
+        }
         return "SELECT * FROM $tableName WHERE $whereClause;"
     }
 
