@@ -47,6 +47,7 @@ interface Parameter : ClassParseable, PrefixBuilder {
         if (receiverClass != other.receiverClass) return false
         if (name != other.name) return false
         if (type != other.type) return false
+        if (isKey != other.isKey) return false
 
         return true
     }
@@ -55,6 +56,7 @@ interface Parameter : ClassParseable, PrefixBuilder {
         var result = receiverClass.hashCode()
         result = 31 * result + name.hashCode()
         result = 31 * result + type.hashCode()
+        result = 31 * result + isKey.hashCode()
         return result
     }
 }
@@ -73,10 +75,14 @@ class SimpleParameter(
     override fun head(prefix: String?, isKey: Boolean, parameters: List<Parameter>): List<HeadEntry> {
         val prefixedName = prefix.build(name)
         return if (isNative()) {
-            listOf(HeadEntry(parameters + this, prefixedName, type.typeName()!!, isKey))
+            listOf(HeadEntry(listOf(this) + parameters, prefixedName, type.typeName()!!, isKey))
         } else {
-            chdMap.directGet(type.utype()).keyHead(prefixedName, isKey, parameters + this)
+            chdMap.directGet(type.utype()).keyHead(prefixedName, isKey, listOf(this) + parameters)
         }
+    }
+
+    override fun toString(): String {
+        return "${receiverClass.simpleName}::$name ${type.typeName()} $isKey"
     }
 
     override fun equals(other: Any?) = runEquals(other)

@@ -53,7 +53,9 @@ data class HeadEntry(
     override fun rebuild(isKey: Boolean): HeadEntry = copy(isKey = isKey)
 
     fun withPrefix(prefix: String?, parameter: Parameter?) =
-        copy(parameterList = parameter?.let { parameterList + it } ?: parameterList, name = prefix.build(name))
+        copy(parameterList = parameter?.let {
+            listOf(it) + parameterList
+        } ?: parameterList, name = prefix.build(name))
 }
 
 data class WriteEntry(val name: String, val value: Any?, override val isKey: Boolean) : NoKeyEntry<WriteEntry> {
@@ -392,7 +394,7 @@ interface PrefixBuilder {
 interface ObjectRelationalHeader : PrefixBuilder {
     fun headOthers(): List<HeadEntry>
     fun keyHead(prefix: String?, parameter: Parameter?): List<HeadEntry>
-    fun allHeads(prefix: String?, parameter: Parameter) = keyHead(prefix, parameter) + headOthers()
+    fun allHeads(prefix: String?, parameter: Parameter?) = keyHead(prefix, parameter) + headOthers()
     fun subHeader(plainTaskReceiver: PlainTaskReceiver, task: (ObjectRelationalHeader) -> Unit)
 }
 
@@ -554,18 +556,20 @@ class CodeGenHelper<T : Any>(val clazz: KClass<T>, val classHeaderMap: Map<KClas
         CHDMap({ x, _ -> classHeaderMap[x]?.invoke() ?: throw RuntimeException("no classHeaderData for $x found") })
 
     inline fun <reified T> simple(name: String) = SimpleParameter(clazz, name, typeOf<T>(), KeyType.NO_KEY, map)
-    inline fun <reified T> simpleHead(name: String) :HeadEntry {
+    inline fun <reified T> simpleHead(name: String): HeadEntry {
         val p = simple<T>(name)
         return HeadEntry(p, name, p.type.typeName()!!, false)
     }
-    inline fun <reified T> simpleKeyHead(name: String) :HeadEntry {
-        val p = simple<T>(name)
+
+    inline fun <reified T> simpleKeyHead(name: String): HeadEntry {
+        val p = simpleKey<T>(name)
         return HeadEntry(p, name, p.type.typeName()!!, true)
     }
+
     inline fun <reified T> simpleKey(name: String) = SimpleParameter(clazz, name, typeOf<T>(), KeyType.NORM, map)
 
     inline fun <reified T> listHead(name: String): HeadEntry {
-        val p =  ParameterWithOneGeneric(clazz, name, typeOf<List<T>>(), KeyType.NO_KEY, map, typeOf<T>())
+        val p = ParameterWithOneGeneric(clazz, name, typeOf<List<T>>(), KeyType.NO_KEY, map, typeOf<T>())
         return HeadEntry(p, name, p.type.typeName()!!, false)
     }
 
