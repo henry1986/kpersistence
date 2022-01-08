@@ -405,6 +405,9 @@ interface ObjectRelationalWriter<T> : PrefixBuilder {
 
     fun write(higherKeys: List<WriteEntry>, t: T, hashCodeCounterGetter: HashCodeCounterGetter): List<WriteRow>
     fun writeKey(prefix: String?, t: T, hashCodeCounterGetter: HashCodeCounterGetter): List<WriteEntry>
+
+    fun writeRow(prefix:String?, t:T, hashCodeCounterGetter: HashCodeCounterGetter):List<WriteEntry>
+
     fun <R> preWriteKey(prefix: String?, isKey: Boolean, func: R.() -> T): List<PreWriteEntry<R>>
     suspend fun subs(t: T, taskReceiver: TaskReceiver, hashCodeCounterGetter: HashCodeCounterGetter)
 }
@@ -512,6 +515,10 @@ data class ObjectRelationalWriterData<T>(
         hashCodeCounterGetter: HashCodeCounterGetter
     ): List<WriteRow> {
         return singleRow(others.flatMap { it.writeEntry(null, t, hashCodeCounterGetter) })
+    }
+
+    override fun writeRow(prefix:String?, t:T, hashCodeCounterGetter: HashCodeCounterGetter):List<WriteEntry>{
+        return (keys + others).flatMap { it.writeEntry(prefix, t, hashCodeCounterGetter) }
     }
 
     /**

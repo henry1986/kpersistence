@@ -74,6 +74,7 @@ kotlin {
         val jvmMain by getting{
             dependencies {
                 implementation(kotlin("reflect"))
+                implementation(versions.sqlite_jdbc())
             }
         }
         val jvmTest by getting {

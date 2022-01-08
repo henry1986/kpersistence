@@ -90,6 +90,14 @@ class ListObjectWriter<E>(
         } ?: emptyList()
     }
 
+    override fun writeRow(
+        prefix: String?,
+        t: List<E>?,
+        hashCodeCounterGetter: HashCodeCounterGetter
+    ): List<WriteEntry> {
+        return emptyList()
+    }
+
     override fun writeKey(
         prefix: String?,
         t: List<E>?,
