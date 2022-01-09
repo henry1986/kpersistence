@@ -196,6 +196,7 @@ class CORM<T : Any>(
 
         ObjectRelationalWriterData(keys, others, noNative.map {
             it.writerMap()
+            it.mapper.objectRelationalWriter.writerListMap { this.l }
         })
     }
 

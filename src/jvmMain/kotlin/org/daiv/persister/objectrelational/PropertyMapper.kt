@@ -20,4 +20,14 @@ data class PropertyMapper<R, T>(val p: KProperty1<R, T>, val mapper: ObjectRelat
 }
 
 
+data class PropertyListMapper<R, T>(val p: KProperty1<R, List<T>>, val mapper: ObjectRelationalMapper<T>) {
+    private fun KProperty1<R, List<T>>.writerMap(c: ObjectRelationalMapper<T>): ObjectRelationalWriterMap<R, T> =
+        ObjectRelationalWriterMap(c.objectRelationalWriter) {
+            isAccessible = true
+            val r = get(this)
+            r
+        }
+
+    fun writerMap() = p.writerMap(mapper)
+}
 

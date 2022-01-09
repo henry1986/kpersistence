@@ -227,6 +227,9 @@ interface ObjectRelationalMapper<T> : ClassParseable {
     fun <T, R> ObjectRelationalMapper<T>.writerListMap(map: R.() -> List<T>) =
         ObjectRelationalWriterMap(ListObjectWriter { this.objectRelationalWriter }, map)
 
+    fun <T, R> ObjectRelationalWriter<T>.writerListMap(map: R.() -> List<T>) =
+        ObjectRelationalWriterMap(ListObjectWriter { this }, map)
+
     fun String.readInt() = ReadEntryTask(this) { nativeReads.readInt() }
     fun String.readString() = ReadEntryTask(this) { nativeReads.readString() }
     fun String.readDouble() = ReadEntryTask(this) { nativeReads.readDouble() }
