@@ -6,14 +6,13 @@ import org.daiv.persister.table.default
 import kotlin.reflect.KClass
 import kotlin.reflect.KParameter
 import kotlin.reflect.KProperty1
-import kotlin.reflect.KType
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
 import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.isAccessible
 
 interface JavaParseable<T : Any> : ClassParseable {
-    val noNative: List<Parameter>
+    val noNative: List<JParameter>
     val propertyMapper: List<PropertyMapper<T, Any?>>
     fun <T : Any> Collection<KParameter>.toWriteEntry(clazz: KClass<T>, isKey: Boolean): List<PreWriteEntry<T>> =
         mapNotNull { parameter ->
@@ -50,83 +49,174 @@ interface ParameterBuilder : ClassParseable {
     }
 }
 
-object JClassHeaderData : ClassParseable {
-    fun toParameters(clazz: KClass<*>, chdMap: CHDMap): ClassHeaderData {
-        val moreKeys: MoreKeysData = clazz.findAnnotation<MoreKeys>().default()
-        val x = clazz.primaryConstructor!!.parameters.mapIndexed { i, it ->
-            val prop = clazz.declaredMemberProperties.find { parameter -> it.name == parameter.name }!!
-            when {
-                !it.type.typeName().isCollection() ->
-                    SimpleJParameter.fromKParameter(
-                        clazz,
-                        it,
-                        KeyType.keyType(i, moreKeys),
-                        chdMap
-                    )
-                it.type.typeName().isList() || it.type.typeName().isSet() -> {
-                    JParameterWithOneGeneric.fromKParameter(clazz, it, KeyType.keyType(i, moreKeys), chdMap)
+interface JClassHeaderData : ClassHeaderData {
+    override val parameters: List<PParameter>
+    override val keyParameters: List<PParameter>
+    override val otherParameters: List<PParameter>
+}
+
+class DefaultJClassHeaderData private constructor(
+    override val parameters: List<PParameter>,
+    private val classHeaderData: ClassHeaderData
+) : JClassHeaderData, ClassHeaderData by classHeaderData {
+    override val keyParameters: List<PParameter> = classHeaderData.keyParameters as List<PParameter>
+    override val otherParameters: List<PParameter> = classHeaderData.otherParameters as List<PParameter>
+
+    companion object : ClassParseable {
+        fun toParameters(clazz: KClass<*>, cormMap: CormMap): JClassHeaderData {
+            val chdMap = cormMap.chdMap
+            val moreKeys: MoreKeysData = clazz.findAnnotation<MoreKeys>().default()
+            val x = clazz.primaryConstructor!!.parameters.mapIndexed { i, it ->
+                when {
+                    !it.type.typeName().isCollection() ->
+                        SimpleJParameter.fromKParameter(
+                            clazz,
+                            it,
+                            KeyType.keyType(i, moreKeys),
+                            chdMap
+                        )
+                    it.type.typeName().isList() || it.type.typeName().isSet() -> {
+                        JParameterWithOneGeneric.fromKParameter(clazz, it, KeyType.keyType(i, moreKeys), chdMap)
+                    }
+                    it.type.typeName().isMap() ->
+                        JParameterWithTwoGenerics.fromKParameter(clazz, it, KeyType.keyType(i, moreKeys), chdMap)
+                    else -> throw RuntimeException("unknown type: $it")
                 }
-                it.type.typeName().isMap() ->
-                    JParameterWithTwoGenerics.fromKParameter(clazz, it, KeyType.keyType(i, moreKeys), chdMap)
-                else -> throw RuntimeException("unknown type: $it")
+            }
+            val t = x.map {
+                val prop = clazz.declaredMemberProperties.find { parameter -> it.name == parameter.name }!!
+                DefaultPParameter(it.buildPropertyMapper(prop, cormMap), it)
+            }
+            return DefaultJClassHeaderData(t, DefaultClassHeaderData(clazz, t, moreKeys))
+        }
+    }
+}
+
+interface PParameter : Parameter {
+    val propertyMapper: PropertyMapper<*, *>
+    fun <T> toWriteEntry(): List<PreWriteEntry<T>>
+}
+
+class SimplePParameter(override val propertyMapper: PropertyMapper<*, *>, val parameter: JParameter) : PParameter,
+    Parameter by parameter {
+    override fun <T> toWriteEntry(): List<PreWriteEntry<T>> {
+        return if (isNative()) {
+            listOf(DefaultPreWriteEntry(listOf(this), keyType.isKey, propGetter))
+        } else {
+
+        }
+    }
+}
+
+class GenericPParameter(override val propertyMapper: PropertyMapper<*, *>, val parameter: JParameter) : PParameter,
+    Parameter by parameter {
+    override fun <T> toWriteEntry(): List<PreWriteEntry<T>> {
+        return emptyList()
+    }
+}
+
+
+interface JParameter : Parameter {
+    fun <T : Any> buildPropertyMapper(it: KProperty1<T, *>, cormMap: CormMap): PropertyMapper<T, Any?>
+}
+
+class SimpleJParameter(private val simpleParameter: SimpleParameter) : JParameter, Parameter by simpleParameter {
+    override fun <T : Any> buildPropertyMapper(it: KProperty1<T, *>, cormMap: CormMap): PropertyMapper<T, Any?> {
+        val p = PropertyMapper(this, it) {
+            val value = cormMap.getValue(type.utype())
+            value.objectRelationalWriter as RowWriter<Any?>
+        }
+        return p
+    }
+
+    override fun <T> toWriteEntry(): List<PreWriteEntry<T>> {
+        return listOf(DefaultPreWriteEntry(listOf(this), keyType.isKey, propGetter))
+    }
+
+    companion object {
+        fun fromKParameter(
+            receiverClass: KClass<*>,
+            parameter: KParameter,
+            isKey: KeyType,
+            chdMap: CHDMap<JClassHeaderData>
+        ): JParameter {
+            return SimpleJParameter(
+                SimpleParameter(
+                    receiverClass,
+                    parameter.name!!,
+                    parameter.type,
+                    isKey,
+                    chdMap,
+                )
+            )
+        }
+    }
+}
+
+class JParameterWithOneGeneric(val generic: ParameterWithGeneric) : JParameter, Parameter by generic {
+
+    override fun <T : Any> buildPropertyMapper(it: KProperty1<T, *>, cormMap: CormMap): PropertyMapper<T, Any?> {
+        it as KProperty1<T, List<out Any>>
+        return PropertyMapper(this, it) {
+            val value = cormMap.getValue(genericNotNativeType().first().type()).objectRelationalWriter
+            if (type.typeName().isList()) {
+                val x: RowWriter<Any?> = ListObjectWriter { value } as RowWriter<Any?>
+                x
+            } else {
+                val s = SetObjectWriter { value }
+                val x: RowWriter<Any?> = s as RowWriter<Any?>
+                x
             }
         }
-        return DefaultClassHeaderData(clazz, x, moreKeys)
     }
-}
 
-object SimpleJParameter : ParameterBuilder {
-    fun fromKParameter(
-        receiverClass: KClass<*>,
-        parameter: KParameter,
-        isKey: KeyType,
-        chdMap: CHDMap
-    ): SimpleParameter {
-        return SimpleParameter(
-            receiverClass,
-            parameter.name!!,
-            parameter.type,
-            isKey,
-            chdMap,
-        )
-    }
-}
-
-object JParameterWithOneGeneric : ParameterBuilder {
-    fun fromKParameter(
-        receiverClass: KClass<*>,
-        parameter: KParameter,
-        keyType: KeyType,
-        chdMap: CHDMap
-    ): ParameterWithOneGeneric {
-        return ParameterWithOneGeneric(
-            receiverClass,
-            parameter.name!!,
-            parameter.type,
-            keyType,
-            chdMap,
-            parameter.type.arguments[0].type!!,
-        )
+    companion object {
+        fun fromKParameter(
+            receiverClass: KClass<*>,
+            parameter: KParameter,
+            keyType: KeyType,
+            chdMap: CHDMap<JClassHeaderData>
+        ): JParameter {
+            return JParameterWithOneGeneric(
+                ParameterWithOneGeneric(
+                    receiverClass,
+                    parameter.name!!,
+                    parameter.type,
+                    keyType,
+                    chdMap,
+                    parameter.type.arguments[0].type!!,
+                )
+            )
+        }
     }
 }
 
 
-object JParameterWithTwoGenerics : ParameterBuilder {
-    fun fromKParameter(
-        receiverClass: KClass<*>,
-        parameter: KParameter,
-        keyType: KeyType,
-        chdMap: CHDMap
-    ): ParameterWithTwoGenerics {
-        return ParameterWithTwoGenerics(
-            receiverClass,
-            parameter.name!!,
-            parameter.type,
-            keyType,
-            chdMap,
-            parameter.type.arguments[0].type!!,
-            parameter.type.arguments[1].type!!,
-        )
+class JParameterWithTwoGenerics(val generic: ParameterWithTwoGenerics) : JParameter, Parameter by generic {
+
+    override fun <T : Any> buildPropertyMapper(it: KProperty1<T, *>, cormMap: CormMap): PropertyMapper<T, Any?> {
+        TODO("Not yet implemented")
+    }
+
+    companion object {
+        fun fromKParameter(
+            receiverClass: KClass<*>,
+            parameter: KParameter,
+            keyType: KeyType,
+            chdMap: CHDMap<JClassHeaderData>
+        ): JParameter {
+            return JParameterWithTwoGenerics(
+                ParameterWithTwoGenerics(
+                    receiverClass,
+                    parameter.name!!,
+                    parameter.type,
+                    keyType,
+                    chdMap,
+                    parameter.type.arguments[0].type!!,
+                    parameter.type.arguments[1].type!!,
+                )
+            )
+        }
     }
 }
 
@@ -147,7 +237,7 @@ class ClassParameterImpl<T : Any>(override val clazz: KClass<T>) : ClassParamete
 
 class CORM<T : Any>(
     val classParameter: ClassParameter<T>,
-    override val classHeaderData: ClassHeaderData,
+    override val classHeaderData: JClassHeaderData,
     override val noNative: List<Parameter>,
     override val propertyMapper: List<PropertyMapper<T, Any?>>,
     val keys: Map<KClass<*>, () -> CORM<out Any>>,
@@ -180,15 +270,13 @@ class CORM<T : Any>(
     }
 
     override val objectRelationalWriter: ObjectRelationalWriterData<T> by lazy {
-        fun List<IndexedValue<KParameter>>.withoutIndex() = map { it.value }
-        fun Map<Boolean, List<IndexedValue<KParameter>>>.toWriteEntry(isKey: Boolean) =
-            get(isKey)?.withoutIndex()?.noCollectionMembers()?.toWriteEntry(clazz, isKey) ?: emptyList()
+//        fun List<IndexedValue<KParameter>>.withoutIndex() = map { it.value }
+//        fun Map<Boolean, List<IndexedValue<KParameter>>>.toWriteEntry(isKey: Boolean) =
+//            get(isKey)?.withoutIndex()?.noCollectionMembers()?.toWriteEntry(clazz, isKey) ?: emptyList()
 
-        val keysBase =
-            clazz.primaryConstructor?.parameters?.withIndex()?.groupBy { it.index < moreKeys.amount } ?: emptyMap()
 
-        val keys = keysBase.toWriteEntry(true)
-        val others = keysBase.toWriteEntry(false)
+        val keys = classHeaderData.keyParameters.map { it.toWriteEntry() }
+        val others = classHeaderData.keyParameters.map { it.toWriteEntry() }
 
         println("no native for $clazz: $noNative")
 

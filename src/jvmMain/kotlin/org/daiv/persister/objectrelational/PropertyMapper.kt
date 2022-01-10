@@ -4,7 +4,7 @@ import kotlin.reflect.KProperty1
 import kotlin.reflect.jvm.isAccessible
 
 
-data class PropertyMapper<R, T>(
+data class PropertyMapper<R, out T>(
     val parameter: Parameter,
     private val p: KProperty1<R, T>,
     private val writer: suspend () -> RowWriter<T>
@@ -16,6 +16,11 @@ data class PropertyMapper<R, T>(
             r
         }
 
-    fun writerMap() = p.writerMap(writer)
+    val propGetter: R.() -> T? = {
+        p.isAccessible = true
+        p.get(this)
+    }
+
+    fun writerMap(): ObjectRelationalWriterMap<R, out T> = p.writerMap(writer)
 }
 

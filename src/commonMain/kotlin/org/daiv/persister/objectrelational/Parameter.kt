@@ -26,7 +26,7 @@ interface Parameter : ClassParseable, PrefixBuilder {
     val receiverClass: KClass<*>
     val name: String
     val type: KType
-    val isKey: KeyType
+    val keyType: KeyType
     val chdMap: CHDMap
     val typeName: String
 
@@ -55,7 +55,7 @@ interface Parameter : ClassParseable, PrefixBuilder {
         if (receiverClass != other.receiverClass) return false
         if (name != other.name) return false
         if (type != other.type) return false
-        if (isKey != other.isKey) return false
+        if (keyType != other.keyType) return false
 
         return true
     }
@@ -64,7 +64,7 @@ interface Parameter : ClassParseable, PrefixBuilder {
         var result = receiverClass.hashCode()
         result = 31 * result + name.hashCode()
         result = 31 * result + type.hashCode()
-        result = 31 * result + isKey.hashCode()
+        result = 31 * result + keyType.hashCode()
         return result
     }
 }
@@ -73,7 +73,7 @@ class SimpleParameter(
     override val receiverClass: KClass<*>,
     override val name: String,
     override val type: KType,
-    override val isKey: KeyType,
+    override val keyType: KeyType,
     override val chdMap: CHDMap
 ) : Parameter {
     override val typeName: String = type.typeName()!!
@@ -103,7 +103,7 @@ class SimpleParameter(
     }
 
     override fun toString(): String {
-        return "${receiverClass.simpleName}::$name ${type.typeName()} $isKey"
+        return "${receiverClass.simpleName}::$name ${type.typeName()} $keyType"
     }
 
     override fun equals(other: Any?) = runEquals(other)
@@ -131,7 +131,7 @@ class ParameterWithOneGeneric(
     override val receiverClass: KClass<*>,
     override val name: String,
     override val type: KType,
-    override val isKey: KeyType,
+    override val keyType: KeyType,
     override val chdMap: CHDMap,
     val genericType: KType,
 ) : ParameterWithGeneric {
@@ -152,7 +152,7 @@ class ParameterWithTwoGenerics(
     override val receiverClass: KClass<*>,
     override val name: String,
     override val type: KType,
-    override val isKey: KeyType,
+    override val keyType: KeyType,
     override val chdMap: CHDMap,
     val genericType: KType,
     val genericType2: KType,
