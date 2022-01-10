@@ -13,7 +13,8 @@ import kotlin.reflect.full.primaryConstructor
 import kotlin.reflect.jvm.isAccessible
 
 interface JavaParseable<T : Any> : ClassParseable {
-    val noNative: List<PropertyMapper<T, Any?>>
+    val noNative: List<Parameter>
+    val propertyMapper: List<PropertyMapper<T, Any?>>
     fun <T : Any> Collection<KParameter>.toWriteEntry(clazz: KClass<T>, isKey: Boolean): List<PreWriteEntry<T>> =
         mapNotNull { parameter ->
             val prop: KProperty1<T, *> = clazz.declaredMemberProperties.find { it.name == parameter.name }!!
@@ -25,7 +26,7 @@ interface JavaParseable<T : Any> : ClassParseable {
             when {
                 typeName.isNative() -> listOf(DefaultPreWriteEntry(parameter.name!!, isKey, propGetter))
                 !typeName.isCollection() ->
-                    noNative.find { it.p == prop }!!.mapper.objectRelationalWriter.preWriteKey(
+                    propertyMapper.find { it.p == prop }!!.writer.preWriteKey(
                         prop.name!!,
                         isKey,
                         propGetter
@@ -63,14 +64,14 @@ object JClassHeaderData : ClassParseable {
                         chdMap
                     )
                 it.type.typeName().isList() || it.type.typeName().isSet() -> {
-                    JParameterWithOneGeneric.fromKParameter(clazz, it,KeyType.keyType(i, moreKeys), chdMap)
+                    JParameterWithOneGeneric.fromKParameter(clazz, it, KeyType.keyType(i, moreKeys), chdMap)
                 }
                 it.type.typeName().isMap() ->
-                    JParameterWithTwoGenerics.fromKParameter(clazz, it,KeyType.keyType(i, moreKeys),  chdMap)
+                    JParameterWithTwoGenerics.fromKParameter(clazz, it, KeyType.keyType(i, moreKeys), chdMap)
                 else -> throw RuntimeException("unknown type: $it")
             }
         }
-        return ClassHeaderData(clazz, x, moreKeys)
+        return DefaultClassHeaderData(clazz, x, moreKeys)
     }
 }
 
@@ -147,7 +148,8 @@ class ClassParameterImpl<T : Any>(override val clazz: KClass<T>) : ClassParamete
 class CORM<T : Any>(
     val classParameter: ClassParameter<T>,
     override val classHeaderData: ClassHeaderData,
-    override val noNative: List<PropertyMapper<T, Any?>>,
+    override val noNative: List<Parameter>,
+    override val propertyMapper: List<PropertyMapper<T, Any?>>,
     val keys: Map<KClass<*>, () -> CORM<out Any>>,
 
     ) : ObjectRelationalMapper<T>, JavaParseable<T>, ClassParameter<T> by classParameter {
@@ -160,27 +162,21 @@ class CORM<T : Any>(
     }
 
     override val objectRelationalHeader: ObjectRelationalHeader by lazy {
-        val all = classHeaderData.parameters.mapIndexed { i, it ->
-            val typeName = it.type.typeName()!!
-            val x = when {
-                typeName.isNative() -> listOf(HeadEntry(it, it.name!!, typeName, moreKeys.amount > i))
-                typeName.isCollection() -> emptyList()
-                else -> it.name!!.headValue(noNative.find { propertyMapper ->
-                    propertyMapper.p.returnType.type<Any>() == it.type.type<Any>()
-                }!!.mapper, it)
-            }
-            x
-        }.flatten()
+        val all = classHeaderData.parameters.mapIndexed { i, it -> it.headEntry(i, moreKeys, keys) }.flatten()
         val map = all.groupBy { it.isKey }
         val keyEntries = map[true] ?: emptyList()
         val collectionParamaters = classParameter.parameters.filter { it.type.typeName().isCollection() }
         val collectionValues =
             classHeaderData.parameters.flatMap { it.genericNotNativeType() }
 //        val x = collectionParamaters.map { { listHeader(keyEntries) } }
+        val noNativeHeaders = noNative.map {
+            { keys[it.type.utype()]?.invoke()?.objectRelationalHeader!! }
+        }
         ObjectRelationalHeaderData(
             keyEntries,
             map[false] ?: emptyList(),
-            noNative.map { { it.mapper.objectRelationalHeader } })
+            noNativeHeaders
+        )
     }
 
     override val objectRelationalWriter: ObjectRelationalWriterData<T> by lazy {
@@ -194,9 +190,11 @@ class CORM<T : Any>(
         val keys = keysBase.toWriteEntry(true)
         val others = keysBase.toWriteEntry(false)
 
+        println("no native for $clazz: $noNative")
+
         ObjectRelationalWriterData(keys, others, noNative.map {
-            it.writerMap()
-            it.mapper.objectRelationalWriter.writerListMap { this.l }
+            val t = propertyMapper.find { p -> it == p.parameter }!!
+            t.writerMap()
         })
     }
 
@@ -249,6 +247,7 @@ class CORM<T : Any>(
 }
 
 suspend fun <T : Any> KClass<T>.objectRelationMapper(map: CormMap): CORM<T> {
+    val classHeaderData = map.chdMap.getValue(this)
     println("get mapper for: $this")
     val noNative = map.createNoNative(this)
     println("2 get mapper for: $this")
@@ -258,7 +257,7 @@ suspend fun <T : Any> KClass<T>.objectRelationMapper(map: CormMap): CORM<T> {
     println("4 get mapper for: $this")
     return CORM(
         classParameter,
-        map.chdMap.getValue(this),
+        classHeaderData,
         noNative,
         keys
     )

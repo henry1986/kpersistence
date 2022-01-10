@@ -1,5 +1,7 @@
 package org.daiv.persister.objectrelational
 
+import kotlin.reflect.KType
+
 class ListObjectReader<E>(
     private val keyMapper: ObjectRelationalReader<*>,
     private val keys: List<ReadEntryTask>,
@@ -67,10 +69,55 @@ fun listHeader(masterEntries: List<HeadEntry>, elementMapper: ObjectRelationalHe
         listOf({ elementMapper })
     )
 
+class SetObjectWriter<E>(val elementMapper: () -> KeyWriter<E>) : RowWriter<Set<E>?> {
+    override fun write(
+        higherKeys: List<WriteEntry>,
+        t: Set<E>?,
+        hashCodeCounterGetter: HashCodeCounterGetter
+    ): List<WriteRow> {
+        return t?.mapIndexed { i, it ->
+            WriteRow(
+                higherKeys + elementMapper().writeKey(
+                    "value_",
+                    it,
+                    hashCodeCounterGetter
+                )
+            )
+        } ?: emptyList()
+    }
+}
+
+class MapObjectWriter<K, V>(
+    val keyMapper: () -> KeyWriter<K>,
+    val elementMapper: () -> KeyWriter<V>
+) : RowWriter<Map<K, V>?> {
+
+//    private val keys by lazy { keys.map { it.copy(name = "ref_".build(it.name)) } }
+
+    override fun write(
+        higherKeys: List<WriteEntry>,
+        t: Map<K, V>?,
+        hashCodeCounterGetter: HashCodeCounterGetter
+    ): List<WriteRow> {
+        return t?.map { it ->
+            WriteRow(
+                higherKeys
+                        + keyMapper().writeKey("key_", it.key, hashCodeCounterGetter)
+                        + elementMapper().writeKey("value_", it.value, hashCodeCounterGetter)
+            )
+        } ?: emptyList()
+    }
+}
+
+class NativeObjectWriter(private val type: KType) : KeyWriter<Any>, PrefixBuilder {
+    override fun writeKey(prefix: String?, t: Any, hashCodeCounterGetter: HashCodeCounterGetter): List<WriteEntry> {
+        return listOf(WriteEntry(prefix.build(type.typeName()!!), t, true))
+    }
+}
 
 class ListObjectWriter<E>(
-    val elementMapper: () -> ObjectRelationalWriter<E>
-) : ObjectRelationalWriter<List<E>?> {
+    val elementMapper: () -> KeyWriter<E>
+) : RowWriter<List<E>?> {
 
 //    private val keys by lazy { keys.map { it.copy(name = "ref_".build(it.name)) } }
 
@@ -88,32 +135,5 @@ class ListObjectWriter<E>(
                 )
             )
         } ?: emptyList()
-    }
-
-    override fun writeRow(
-        prefix: String?,
-        t: List<E>?,
-        hashCodeCounterGetter: HashCodeCounterGetter
-    ): List<WriteEntry> {
-        return emptyList()
-    }
-
-    override fun writeKey(
-        prefix: String?,
-        t: List<E>?,
-        hashCodeCounterGetter: HashCodeCounterGetter
-    ): List<WriteEntry> {
-        return emptyList()
-    }
-
-
-    override suspend fun subs(t: List<E>?, taskReceiver: TaskReceiver, hashCodeCounterGetter: HashCodeCounterGetter) {
-        t?.forEach {
-            it?.let { taskReceiver.task(it, emptyList(), elementMapper()) }
-        }
-    }
-
-    override fun <R> preWriteKey(prefix: String?, isKey: Boolean, func: R.() -> List<E>?): List<PreWriteEntry<R>> {
-        TODO()
     }
 }

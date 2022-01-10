@@ -9,6 +9,7 @@ import kotlin.test.assertEquals
 class CormMapTest {
     private data class SimpleObject(val x: Int, val y: String)
     private data class ComplexObject(val cx: Int, val s: SimpleObject)
+    private data class ComplexListObject(val cx: Int, val s: List<SimpleObject>)
 
     @Test
     fun testSimpleObject() = runTest {
@@ -25,5 +26,17 @@ class CormMapTest {
         val expect = ComplexObject::class.declaredMemberProperties.drop(1)
             .map { PropertyMapper(it, simpleObjectMapper as ObjectRelationalMapper<Any?>) }
         assertEquals(expect, noNative)
+    }
+
+    @Test
+    fun testComplexListObject() = runTest {
+        val map = CormMap()
+        val simpleObjectMapper = map.getValue(SimpleObject::class)
+        val collection = map.createCollections(ComplexListObject::class)
+        println("collection: $collection")
+
+//        val expect = ComplexListObject::class.declaredMemberProperties.drop(1)
+//            .map { PropertyMapper(it, simpleObjectMapper as ObjectRelationalMapper<Any?>) }
+//        assertEquals(expect, noNative)
     }
 }

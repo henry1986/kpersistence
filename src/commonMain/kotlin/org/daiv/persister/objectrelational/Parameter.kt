@@ -1,6 +1,7 @@
 package org.daiv.persister.objectrelational
 
 import org.daiv.persister.MoreKeysData
+import org.daiv.persister.objectrelational.TestXZ.Companion.headValue
 import kotlin.reflect.KClass
 import kotlin.reflect.KType
 
@@ -27,6 +28,7 @@ interface Parameter : ClassParseable, PrefixBuilder {
     val type: KType
     val isKey: KeyType
     val chdMap: CHDMap
+    val typeName: String
 
     fun isNative(): Boolean = type.typeName().isNative()
     fun isList(): Boolean = type.typeName().isList()
@@ -34,6 +36,12 @@ interface Parameter : ClassParseable, PrefixBuilder {
     fun isSet(): Boolean = type.typeName().isSet()
     fun isSetOrList(): Boolean = isSet() || isList()
     fun isCollection(): Boolean = type.typeName().isCollection()
+
+    fun headEntry(
+        index: Int,
+        moreKeys: MoreKeysData,
+        keys: Map<KClass<*>, () -> ObjectRelationalMapper<out Any>>
+    ): List<HeadEntry>
 
     fun genericNotNativeType(): List<KType>
     fun dependentClasses(): List<KClass<*>>
@@ -68,6 +76,19 @@ class SimpleParameter(
     override val isKey: KeyType,
     override val chdMap: CHDMap
 ) : Parameter {
+    override val typeName: String = type.typeName()!!
+
+    override fun headEntry(
+        index: Int,
+        moreKeys: MoreKeysData,
+        keys: Map<KClass<*>, () -> ObjectRelationalMapper<out Any>>
+    ): List<HeadEntry> {
+        if (isNative()) {
+            return listOf(HeadEntry(this, name, typeName, moreKeys.amount > index))
+        } else {
+            return name.headValue(keys[type.utype()]?.invoke()?.objectRelationalHeader!!, this)
+        }
+    }
 
     override fun genericNotNativeType(): List<KType> = emptyList()
 
@@ -89,6 +110,23 @@ class SimpleParameter(
     override fun hashCode() = runHashCode()
 }
 
+interface ParameterWithGeneric:Parameter{
+    override fun headEntry(
+        index: Int,
+        moreKeys: MoreKeysData,
+        keys: Map<KClass<*>, () -> ObjectRelationalMapper<out Any>>
+    ): List<HeadEntry> {
+        return emptyList()
+    }
+
+
+    override fun head(prefix: String?, isKey: Boolean, parameters: List<Parameter>): List<HeadEntry> {
+        return emptyList()
+    }
+    override fun dependentClasses(): List<KClass<*>> = genericNotNativeType().map { it.utype() }
+
+}
+
 class ParameterWithOneGeneric(
     override val receiverClass: KClass<*>,
     override val name: String,
@@ -96,13 +134,9 @@ class ParameterWithOneGeneric(
     override val isKey: KeyType,
     override val chdMap: CHDMap,
     val genericType: KType,
-) : Parameter {
+) : ParameterWithGeneric {
 
-    override fun head(prefix: String?, isKey: Boolean, parameters: List<Parameter>): List<HeadEntry> {
-        return emptyList()
-    }
-
-    override fun dependentClasses(): List<KClass<*>> = genericNotNativeType().map { it.utype() }
+    override val typeName: String = type.typeName()!!
 
     fun isGenericNative() = genericType.typeName().isNative()
 
@@ -122,13 +156,9 @@ class ParameterWithTwoGenerics(
     override val chdMap: CHDMap,
     val genericType: KType,
     val genericType2: KType,
-) : Parameter {
+) : ParameterWithGeneric {
 
-    override fun head(prefix: String?, isKey: Boolean, parameters: List<Parameter>): List<HeadEntry> {
-        return emptyList()
-    }
-
-    override fun dependentClasses(): List<KClass<*>> = genericNotNativeType().map { it.utype() }
+    override val typeName: String = type.typeName()!!
 
     fun isGenericNative() = genericType.typeName().isNative()
     fun isGeneric2Native() = genericType.typeName().isNative()

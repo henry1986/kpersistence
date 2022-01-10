@@ -22,34 +22,63 @@ class CormMap(val scopeContextable: ScopeContextable = DefaultScopeContextable()
         return calculationCollection.getValue(clazz) as CORM<T>
     }
 
-    private suspend fun <R, T> KProperty1<R, T>.toMapper(clazz: KClass<Any>) =
-        PropertyMapper(this, getValue(clazz) as ObjectRelationalMapper<T>)
+    private suspend fun <R, T> KProperty1<R, T>.toMapper(parameter: Parameter, clazz: KClass<Any>) =
+        PropertyMapper(parameter, this, (getValue(clazz) as ObjectRelationalMapper<T>).objectRelationalWriter)
 
-    suspend fun <T : Any> createNoNative(clazz: KClass<T>): List<PropertyMapper<T, Any?>> =
+    /**
+     * creates PropertyMapper for every Object, that is not a native or a collection type.
+     */
+    suspend fun <T : Any> createPropertyMapper(clazz: KClass<T>): List<PropertyMapper<T, Any?>> =
         withContext(scopeContextable.context) {
+            println("create NoNative: $clazz")
             (clazz.primaryConstructor?.parameters?.map {
                 val type = it.type.type<Any>()
+                println("create NoNative parameter: $type")
                 val nextType = when {
                     type.simpleName.isNative() -> type
                     type.simpleName.isList() || type.simpleName.isSet() -> {
-                        val type = it.type.arguments[0].type!!
-                        if (type.typeName().isNative()) {
+                        val genericType = it.type.arguments[0].type!!
+                        if (genericType.typeName().isNative()) {
 
                         } else {
 
                         }
-                        type.type()
+                        genericType.type()
                     }
                     type.simpleName.isMap() -> it.type.arguments[0].type!!.type()
                     else -> type
                 }
+                println("nextType: $nextType")
                 it to nextType
             }
                 ?: throw NullPointerException("there is no argument or no primary constructor for clazz: $clazz"))
                 .filter { !it.second.simpleName.isNative() && !it.second.simpleName.isCollection() }.asFlow()
                 .map { pair ->
+                    println("pair: $pair")
                     clazz.declaredMemberProperties.find { it.name == pair.first.name }!!.toMapper(pair.second)
                 }.toList()
+        }
+
+    /**
+     * creates PropertyMapper for every Object, that is not a native or a collection type.
+     */
+    suspend fun <T : Any> createCollections(classHeaderData: ClassHeaderData): List<PropertyMapper<T, *>> =
+        withContext(scopeContextable.context) {
+            val clazz = classHeaderData.clazz
+            println("create Collection: $clazz")
+            val x = (classHeaderData.parameters.filter { it.type.typeName().isCollection() }?.flatMap { paramater ->
+                val mappped = clazz.declaredMemberProperties.filter { it.name == paramater.name }
+                    .map {
+                        it as KProperty1<T, List<out Any>>
+                        PropertyMapper(paramater, it) {
+                            val value = getValue(paramater.genericNotNativeType().first().type()).objectRelationalWriter
+                            val x: RowWriter<List<Any>?> = ListObjectWriter { value }
+                            x
+                        }
+                    }
+                mappped
+            })
+            x
         }
 
     fun createKeys(classParameter: ClassParameter<*>): Map<KClass<*>, () -> CORM<out Any>> {
