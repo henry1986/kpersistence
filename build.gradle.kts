@@ -1,23 +1,23 @@
 buildscript {
     repositories {
+        mavenCentral()
         maven { url = uri("https://repo.gradle.org/gradle/libs-releases") }
-        maven("https://artifactory.daiv.org/artifactory/gradle-dev-local")
     }
     dependencies {
-        classpath("org.daiv.dependency:DependencyHandling:0.1.14")
+        classpath("org.daiv.dependency:DependencyHandling:0.1.43")
     }
 }
-
+val versions = org.daiv.dependency.DefaultDependencyBuilder()
 plugins {
     kotlin("multiplatform") version "1.6.10"
-    kotlin("kapt") version "1.6.10"
-    id("com.jfrog.artifactory") version "4.17.2"
-    id("org.daiv.dependency.VersionsPlugin") version "0.1.3"
+//    kotlin("kapt") version "1.6.10"
+//    id("com.jfrog.artifactory") version "4.17.2"
+    id("org.daiv.dependency.VersionsPlugin") version "0.1.4"
     kotlin("plugin.serialization") version "1.4.0"
     `maven-publish`
 }
 
-val versions = org.daiv.dependency.DefaultDependencyBuilder()
+
 
 group = "org.daiv.persistence"
 version = "0.0.1"
@@ -31,7 +31,6 @@ version = "0.0.1"
 
 repositories {
     mavenCentral()
-    maven("https://artifactory.daiv.org/artifactory/gradle-dev-local")
 }
 
 kotlin {
