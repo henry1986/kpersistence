@@ -2,15 +2,15 @@ package org.daiv.persister
 
 import kotlin.reflect.KProperty1
 
-class NativeTypeMapperCreator<HIGHERCLASS:Any, LOWERTYPE>(val member: KProperty1<HIGHERCLASS, LOWERTYPE>) {
+data class DefaultValueGetter<HIGHERCLASS : Any, LOWERTYPE>(val member: KProperty1<HIGHERCLASS, LOWERTYPE>): GetValue<HIGHERCLASS, LOWERTYPE> {
+    override fun get(higherClass: HIGHERCLASS): LOWERTYPE {
+        return member.get(higherClass)
+    }
+}
 
-    fun toNativeTypeHandler() = NativeTypeHandler(type, member.name, member.returnType.isMarkedNullable, object : GetValue<HIGHERCLASS, LOWERTYPE>{
-        override fun get(higherClass: HIGHERCLASS): LOWERTYPE {
-            return member.get(higherClass)
-        }
-    })
+class NativeTypeMapperCreator<HIGHERCLASS : Any, LOWERTYPE>(val member: KProperty1<HIGHERCLASS, LOWERTYPE>) {
 
-    val type:NativeType = when(member.returnType.classifier){
+    private val type: NativeType = when (member.returnType.classifier) {
         Int::class -> NativeType.INT
         Long::class -> NativeType.LONG
         String::class -> NativeType.STRING
@@ -18,4 +18,8 @@ class NativeTypeMapperCreator<HIGHERCLASS:Any, LOWERTYPE>(val member: KProperty1
         Boolean::class -> NativeType.BOOLEAN
         else -> throw RuntimeException("unknown type: ${member.returnType}")
     }
+
+    val getValue = DecoratorFactory.getDecorator(type, DefaultValueGetter(member))
+
+    fun toNativeTypeHandler() = NativeTypeHandler(type, member.name, member.returnType.isMarkedNullable, getValue)
 }

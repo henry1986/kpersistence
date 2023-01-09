@@ -14,7 +14,7 @@ class NativeTypeTest {
         })
         assertEquals("5", handler.insertValue(Any()))
         assertEquals("i", handler.insertHead())
-        assertEquals("i Int NOT NULL", handler.toHeader())
+        assertEquals("i INT NOT NULL", handler.toHeader())
         assertEquals(5, handler.getValue(DatabaseRunner(object : DatabaseReader {
             override fun next(i: Int): Any? {
                 if(i != 1){

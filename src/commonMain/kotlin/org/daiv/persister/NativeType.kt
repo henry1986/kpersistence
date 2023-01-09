@@ -23,7 +23,7 @@ interface Headerable : Nameable, TypeNameable, NullableElement {
 }
 
 enum class NativeType(override val typeName: String) : TypeNameable {
-    INT("Int"), STRING("TEXT"), LONG("Long"), BOOLEAN("Int"), DOUBLE("real"), ENUM("String")
+    INT("INT"), STRING("TEXT"), LONG("LONG"), BOOLEAN("INT"), DOUBLE("REAL"), ENUM("STRING")
 }
 
 interface GetValue<HIGHERCLASS : Any, T> {
@@ -38,13 +38,30 @@ interface GetValue<HIGHERCLASS : Any, T> {
     }
 }
 
-interface LongValueGetter<HIGHERCLASS : Any> : GetValue<HIGHERCLASS, Long?> {
+object DecoratorFactory {
+    fun <HIGHERCLASS : Any> getDecorator(
+        type: NativeType,
+        getValue: GetValue<HIGHERCLASS, *>
+    ): GetValue<HIGHERCLASS, *> {
+        @Suppress("UNCHECKED_CAST")
+        return when (type) {
+            NativeType.BOOLEAN -> BooleanValueGetterDecorator(getValue as GetValue<HIGHERCLASS, Boolean?>)
+            NativeType.LONG -> LongValueGetterDecorator(getValue as GetValue<HIGHERCLASS, Long?>)
+            NativeType.STRING -> StringValueGetterDecorator(getValue as GetValue<HIGHERCLASS, String?>)
+            else -> getValue
+        }
+    }
+}
+
+class LongValueGetterDecorator<HIGHERCLASS : Any>(val getValue: GetValue<HIGHERCLASS, Long?>) :
+    GetValue<HIGHERCLASS, Long?> by getValue {
     override fun getValue(databaseReader: DatabaseReader, counter: Int): Long? {
         return databaseReader.nextLong(counter)
     }
 }
 
-interface BooleanValueGetter<HIGHERCLASS : Any> : GetValue<HIGHERCLASS, Boolean?> {
+data class BooleanValueGetterDecorator<HIGHERCLASS : Any>(val getValue: GetValue<HIGHERCLASS, Boolean?>) :
+    GetValue<HIGHERCLASS, Boolean?> by getValue {
     override fun asString(higherClass: HIGHERCLASS) = when (get(higherClass)) {
         null -> "null"
         true -> "1"
@@ -60,7 +77,9 @@ interface BooleanValueGetter<HIGHERCLASS : Any> : GetValue<HIGHERCLASS, Boolean?
     }
 }
 
-interface StringValueGetter<HIGHERCLASS : Any> : GetValue<HIGHERCLASS, String?> {
+
+data class StringValueGetterDecorator<HIGHERCLASS : Any>(val getValue: GetValue<HIGHERCLASS, String?>) :
+    GetValue<HIGHERCLASS, String?> by getValue {
     override fun asString(higherClass: HIGHERCLASS): String {
         val get = get(higherClass)
         return if (get == null) "null" else "\"${get}\""
@@ -85,8 +104,5 @@ data class NativeTypeHandler<HIGHERCLASS : Any, T>(
     }
 }
 
-data class DatabaseRunner(val databaseReader: DatabaseReader, val count: Int, val list: List<Any?>) {
-    fun next(typeHandler: NativeTypeHandler<*, *>): DatabaseRunner {
-        return typeHandler.getValue(this)
-    }
-}
+
+data class DatabaseRunner(val databaseReader: DatabaseReader, val count: Int, val list: List<Any?>)
