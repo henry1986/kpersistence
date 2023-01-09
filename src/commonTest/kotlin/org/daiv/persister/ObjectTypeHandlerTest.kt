@@ -19,7 +19,7 @@ class ObjectTypeHandlerTest {
             "MyObject",
             "m",
             false,
-            MoreKeys::class.createObject(2, false),
+            MoreKeysData(2, false),
             listOf(
                 NativeTypeHandler(NativeType.INT, "i", false, TestValueGetter(5)),
                 NativeTypeHandler(NativeType.STRING, "s", false, TestValueGetter("Hello")),

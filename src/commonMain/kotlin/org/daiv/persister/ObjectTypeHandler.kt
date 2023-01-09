@@ -4,7 +4,7 @@ data class ObjectTypeHandler(
     override val typeName: String,
     override val name: String,
     override val isNullable: Boolean,
-    val moreKeys: MoreKeys,
+    val moreKeys: MoreKeysData,
     val nativeTypes: List<NativeTypeHandler<*, *>>
 ) :TypeNameable, Nameable, Headerable{
 
