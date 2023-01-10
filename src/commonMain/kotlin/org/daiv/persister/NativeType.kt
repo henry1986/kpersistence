@@ -4,11 +4,11 @@ interface TypeNameable {
     val typeName: String
 }
 
-interface Nameable {
-    fun insertHead(): String {
-        return name
-    }
+interface InsertHeadable {
+    fun insertHead(): String
+}
 
+interface Nameable {
     val name: String
 }
 
@@ -16,11 +16,10 @@ interface NullableElement {
     val isNullable: Boolean
 }
 
-interface Headerable : Nameable, TypeNameable, NullableElement {
-    fun toHeader(): String {
-        return "$name $typeName ${if (!isNullable) "NOT NULL" else ""}"
-    }
+interface Headerable {
+    fun toHeader(): String
 }
+
 
 enum class NativeType(override val typeName: String) : TypeNameable {
     INT("INT"), STRING("TEXT"), LONG("LONG"), BOOLEAN("INT"), DOUBLE("REAL"), ENUM("STRING")
@@ -86,13 +85,29 @@ data class StringValueGetterDecorator<HIGHERCLASS : Any>(val getValue: GetValue<
     }
 }
 
+interface TypeHandler<T : TypeHandler<T>> : TypeNameable, InsertHeadable, NullableElement, Headerable {
+    fun mapName(name: String): T
+}
+
 
 data class NativeTypeHandler<HIGHERCLASS : Any, T>(
     private val type: NativeType,
     override val name: String,
     override val isNullable: Boolean,
     private val valueGetter: GetValue<HIGHERCLASS, T>
-) : TypeNameable by type, Nameable, NullableElement, Headerable {
+) : TypeHandler<NativeTypeHandler<HIGHERCLASS, T>>, TypeNameable by type, Nameable {
+
+    override fun insertHead(): String {
+        return name
+    }
+
+    override fun toHeader(): String {
+        return "$name $typeName ${if (!isNullable) "NOT NULL" else ""}"
+    }
+
+    override fun mapName(name: String): NativeTypeHandler<HIGHERCLASS, T> {
+        return copy(name = "${name}_${this.name}")
+    }
 
     fun insertValue(higherClass: HIGHERCLASS): String {
         return valueGetter.asString(higherClass)
@@ -103,6 +118,5 @@ data class NativeTypeHandler<HIGHERCLASS : Any, T>(
         return databaseRunner.copy(count = databaseRunner.count + 1, list = databaseRunner.list + t)
     }
 }
-
 
 data class DatabaseRunner(val databaseReader: DatabaseReader, val count: Int, val list: List<Any?>)

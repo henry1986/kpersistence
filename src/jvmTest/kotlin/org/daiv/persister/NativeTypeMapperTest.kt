@@ -31,12 +31,12 @@ class NativeTypeMapperTest<T:Any> {
         runTest<String>(NativeType.STRING, StringHolder::class, StringValueGetterDecorator::class)
     }
 
-//    @Test
-//    fun testFindAnno(){
-//        @MoreKeys(2)
-//        class MyObject(val i: Int, val s: String, val x: Long)
-//        val c = MyObject::class
-//        val m = c.findAnnotation<MoreKeys>()
-//        assertEquals(2, m?.amount)
-//    }
+    @Test
+    fun testFindAnno(){
+        @MoreKeys(2)
+        class MyObject(val i: Int, val s: String, val x: Long)
+        val c = MyObject::class
+        val m = c.findAnnotation<MoreKeys>()
+        assertEquals(2, m?.amount)
+    }
 }
