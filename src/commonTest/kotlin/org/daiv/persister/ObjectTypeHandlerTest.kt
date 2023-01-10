@@ -16,7 +16,6 @@ class ObjectTypeHandlerTest {
     @Test
     fun test() {
         val handler = ObjectTypeHandler(
-            "MyObject",
             false,
             MoreKeysData(2, false),
             listOf(
@@ -32,7 +31,6 @@ class ObjectTypeHandlerTest {
     @Test
     fun testRefHandler() {
         val handler = ObjectTypeRefHandler(
-            "MyObject",
             "m",
             false,
             MoreKeysData(2, false),
@@ -47,14 +45,15 @@ class ObjectTypeHandlerTest {
     }
 }
 
-class TestComplexObjectType{
+class TestComplexObjectType {
     @MoreKeys(2)
-    data class ComplexObject(val my: ObjectTypeHandlerTest.MyObject, val x:Int, val s:String)
+    data class ComplexObject(val m: ObjectTypeHandlerTest.MyObject, val x: Int, val s: String)
 
 
-    fun test1(){
-        val handler = ObjectTypeHandler(
-            "ComplexObject",
+    @Test
+    fun testObjectType() {
+        val myObjectHandler = ObjectTypeRefHandler(
+            "m",
             false,
             MoreKeysData(2, false),
             listOf(
@@ -63,7 +62,40 @@ class TestComplexObjectType{
                 NativeTypeHandler(NativeType.LONG, "x", false, ObjectTypeHandlerTest.TestValueGetter(592)),
             )
         )
-        assertEquals("i INT NOT NULL, s TEXT NOT NULL, x LONG NOT NULL", handler.toHeader())
-        assertEquals("i, s, x", handler.insertHead())
+        val handler = ObjectTypeHandler(
+            false,
+            MoreKeysData(2, false),
+            listOf(myObjectHandler) + listOf(
+                NativeTypeHandler(NativeType.INT, "x", false, ObjectTypeHandlerTest.TestValueGetter(586)),
+                NativeTypeHandler(NativeType.STRING, "s", false, ObjectTypeHandlerTest.TestValueGetter("Hello")),
+            )
+        )
+        assertEquals("m_i INT NOT NULL, m_s TEXT NOT NULL, x INT NOT NULL, s TEXT NOT NULL", handler.toHeader())
+        assertEquals("m_i, m_s, x, s", handler.insertHead())
+    }
+
+    @Test
+    fun testObjectTypeRef() {
+        val myObjectHandler = ObjectTypeRefHandler(
+            "m",
+            false,
+            MoreKeysData(2, false),
+            listOf(
+                NativeTypeHandler(NativeType.INT, "i", false, ObjectTypeHandlerTest.TestValueGetter(5)),
+                NativeTypeHandler(NativeType.STRING, "s", false, ObjectTypeHandlerTest.TestValueGetter("Hello")),
+                NativeTypeHandler(NativeType.LONG, "x", false, ObjectTypeHandlerTest.TestValueGetter(592)),
+            )
+        )
+        val handler = ObjectTypeRefHandler(
+            "c",
+            false,
+            MoreKeysData(2, false),
+            listOf(myObjectHandler) + listOf(
+                NativeTypeHandler(NativeType.INT, "x", false, ObjectTypeHandlerTest.TestValueGetter(586)),
+                NativeTypeHandler(NativeType.STRING, "s", false, ObjectTypeHandlerTest.TestValueGetter("Hello")),
+            )
+        )
+        assertEquals("c_m_i INT NOT NULL, c_m_s TEXT NOT NULL, c_x INT NOT NULL", handler.toHeader())
+        assertEquals("c_m_i, c_m_s, c_x", handler.insertHead())
     }
 }

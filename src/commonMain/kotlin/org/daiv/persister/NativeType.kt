@@ -85,7 +85,7 @@ data class StringValueGetterDecorator<HIGHERCLASS : Any>(val getValue: GetValue<
     }
 }
 
-interface TypeHandler<T : TypeHandler<T>> : TypeNameable, InsertHeadable, NullableElement, Headerable {
+interface TypeHandler<T : TypeHandler<T>> : InsertHeadable, NullableElement, Headerable {
     fun mapName(name: String): T
 }
 
