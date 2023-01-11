@@ -9,7 +9,7 @@ class NativeTypeTest {
     fun testNativeType() {
         val handler = memberValueGetter<Any, Int>("i", false) {
             throw RuntimeException("test should not use getValue")
-        }
+        } as NativeTypeHandler
         assertEquals("5", handler.insertValue(5))
         assertEquals("i", handler.insertHead())
         assertEquals("i INT NOT NULL", handler.toHeader())

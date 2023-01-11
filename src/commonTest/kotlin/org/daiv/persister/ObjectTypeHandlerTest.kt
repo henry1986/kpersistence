@@ -27,14 +27,11 @@ class ObjectTypeHandlerTest {
 
     @Test
     fun testRefHandler() {
-        val handler = ObjectTypeRefHandler<Any, MyObject>(
-            "m",
-            false,
-            MoreKeysData(2, false),
-            listOf(
-                memberValueGetter("i", false) { i },
-                memberValueGetter("s", false) { s },
-                memberValueGetter("x", false) { x },
+        val handler = memberValueGetter<Any, MyObject>(
+            "m", false, MoreKeysData(2), listOf(
+                memberValueGetterCreator("i", false) { i },
+                memberValueGetterCreator("s", false) { s },
+                memberValueGetterCreator("x", false) { x },
             )
         ) {
             throw RuntimeException("test should not use getValue")
@@ -88,7 +85,7 @@ class TestComplexObjectType {
                 memberValueGetter("x", false) { x },
                 memberValueGetter("s", false) { s },
             )
-        ){
+        ) {
             throw RuntimeException("test should not use getValue")
         }
         assertEquals("c_m_i INT NOT NULL, c_m_s TEXT NOT NULL, c_x INT NOT NULL", handler.toHeader())

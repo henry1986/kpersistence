@@ -9,18 +9,19 @@ class NativeTypeMapperTest<T : Any> {
     class LongHolder(val i: Long)
     class StringHolder(val i: String)
 
-    inline fun <reified HOLDER : Any, reified T> testRun(
+    inline fun <reified HOLDER : Any, reified T : Any> testRun(
         name: String,
         nativeType: NativeType,
         mapperClass: KClass<out MapValue<*>>,
         noinline func: HOLDER.() -> T
     ) {
-        val got = memberValueGetterCreator(name, false, emptyList(), func)
+        val member = memberValueGetterCreator(name, false, MoreKeysData(), emptyList(), func)
+        val n = NativeTypeMapperCreator.create(member)
         assertEquals(
-            got.toNativeTypeHandler(),
-            NativeTypeHandler(nativeType, name, false, got.mapValue, got.member)
+            member.create(),
+            NativeTypeHandler(nativeType, name, false, n.mapValue, member)
         )
-        assertEquals(mapperClass, got.mapValue::class)
+        assertEquals(mapperClass, n.mapValue::class)
     }
 
     @Test
