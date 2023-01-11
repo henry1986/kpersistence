@@ -7,41 +7,41 @@ class ObjectTypeHandlerTest {
     @MoreKeys(2)
     class MyObject(val i: Int, val s: String, val x: Long)
 
-    class TestValueGetter(val any: Any) : GetValue<Any, Any> {
-        override fun get(higherClass: Any): Any {
-            return any
-        }
-    }
-
     @Test
     fun test() {
-        val handler = ObjectTypeHandler(
+        val handler = ObjectTypeHandler<Any, MyObject>(
             false,
             MoreKeysData(2, false),
             listOf(
-                NativeTypeHandler(NativeType.INT, "i", false, TestValueGetter(5)),
-                NativeTypeHandler(NativeType.STRING, "s", false, TestValueGetter("Hello")),
-                NativeTypeHandler(NativeType.LONG, "x", false, TestValueGetter(592)),
+                memberValueGetter("i", false) { i },
+                memberValueGetter("s", false) { s },
+                memberValueGetter("x", false) { x },
             )
         )
-        assertEquals("i INT NOT NULL, s TEXT NOT NULL, x LONG NOT NULL", handler.toHeader())
+        assertEquals(
+            "i INT NOT NULL, s TEXT NOT NULL, x LONG NOT NULL", handler.toHeader()
+        )
         assertEquals("i, s, x", handler.insertHead())
+        assertEquals("5, \"Hello\", 90", handler.insertValue(MyObject(5, "Hello", 90L)))
     }
 
     @Test
     fun testRefHandler() {
-        val handler = ObjectTypeRefHandler(
+        val handler = ObjectTypeRefHandler<Any, MyObject>(
             "m",
             false,
             MoreKeysData(2, false),
             listOf(
-                NativeTypeHandler(NativeType.INT, "i", false, TestValueGetter(5)),
-                NativeTypeHandler(NativeType.STRING, "s", false, TestValueGetter("Hello")),
-                NativeTypeHandler(NativeType.LONG, "x", false, TestValueGetter(592)),
+                memberValueGetter("i", false) { i },
+                memberValueGetter("s", false) { s },
+                memberValueGetter("x", false) { x },
             )
-        )
+        ) {
+            throw RuntimeException("test should not use getValue")
+        }
         assertEquals("m_i INT NOT NULL, m_s TEXT NOT NULL", handler.toHeader())
         assertEquals("m_i, m_s", handler.insertHead())
+        assertEquals("5, \"Hello\"", handler.insertValue(MyObject(5, "Hello", 90)))
     }
 }
 
@@ -49,53 +49,53 @@ class TestComplexObjectType {
     @MoreKeys(2)
     data class ComplexObject(val m: ObjectTypeHandlerTest.MyObject, val x: Int, val s: String)
 
+    private val myObjectHandler = ObjectTypeRefHandler<ComplexObject, ObjectTypeHandlerTest.MyObject>(
+        "m",
+        false,
+        MoreKeysData(2, false),
+        listOf(
+            memberValueGetter("i", false) { i },
+            memberValueGetter("s", false) { s },
+            memberValueGetter("x", false) { x },
+        )
+    ) { it.m }
 
     @Test
     fun testObjectType() {
-        val myObjectHandler = ObjectTypeRefHandler(
-            "m",
-            false,
-            MoreKeysData(2, false),
-            listOf(
-                NativeTypeHandler(NativeType.INT, "i", false, ObjectTypeHandlerTest.TestValueGetter(5)),
-                NativeTypeHandler(NativeType.STRING, "s", false, ObjectTypeHandlerTest.TestValueGetter("Hello")),
-                NativeTypeHandler(NativeType.LONG, "x", false, ObjectTypeHandlerTest.TestValueGetter(592)),
-            )
-        )
-        val handler = ObjectTypeHandler(
+        val handler = ObjectTypeHandler<Any, ComplexObject>(
             false,
             MoreKeysData(2, false),
             listOf(myObjectHandler) + listOf(
-                NativeTypeHandler(NativeType.INT, "x", false, ObjectTypeHandlerTest.TestValueGetter(586)),
-                NativeTypeHandler(NativeType.STRING, "s", false, ObjectTypeHandlerTest.TestValueGetter("Hello")),
+                memberValueGetter("x", false) { x },
+                memberValueGetter("s", false) { s },
             )
         )
         assertEquals("m_i INT NOT NULL, m_s TEXT NOT NULL, x INT NOT NULL, s TEXT NOT NULL", handler.toHeader())
         assertEquals("m_i, m_s, x, s", handler.insertHead())
+        assertEquals(
+            "5, \"Hello\", 1, \"World\"",
+            handler.insertValue(ComplexObject(ObjectTypeHandlerTest.MyObject(5, "Hello", 95L), 1, "World"))
+        )
     }
 
     @Test
     fun testObjectTypeRef() {
-        val myObjectHandler = ObjectTypeRefHandler(
-            "m",
-            false,
-            MoreKeysData(2, false),
-            listOf(
-                NativeTypeHandler(NativeType.INT, "i", false, ObjectTypeHandlerTest.TestValueGetter(5)),
-                NativeTypeHandler(NativeType.STRING, "s", false, ObjectTypeHandlerTest.TestValueGetter("Hello")),
-                NativeTypeHandler(NativeType.LONG, "x", false, ObjectTypeHandlerTest.TestValueGetter(592)),
-            )
-        )
-        val handler = ObjectTypeRefHandler(
+        val handler = ObjectTypeRefHandler<Any, ComplexObject>(
             "c",
             false,
             MoreKeysData(2, false),
             listOf(myObjectHandler) + listOf(
-                NativeTypeHandler(NativeType.INT, "x", false, ObjectTypeHandlerTest.TestValueGetter(586)),
-                NativeTypeHandler(NativeType.STRING, "s", false, ObjectTypeHandlerTest.TestValueGetter("Hello")),
+                memberValueGetter("x", false) { x },
+                memberValueGetter("s", false) { s },
             )
-        )
+        ){
+            throw RuntimeException("test should not use getValue")
+        }
         assertEquals("c_m_i INT NOT NULL, c_m_s TEXT NOT NULL, c_x INT NOT NULL", handler.toHeader())
         assertEquals("c_m_i, c_m_s, c_x", handler.insertHead())
+        assertEquals(
+            "5, \"Hello\", 1",
+            handler.insertValue(ComplexObject(ObjectTypeHandlerTest.MyObject(5, "Hello", 95L), 1, "World"))
+        )
     }
 }

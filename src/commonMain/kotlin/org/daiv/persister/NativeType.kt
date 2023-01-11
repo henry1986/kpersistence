@@ -1,5 +1,7 @@
 package org.daiv.persister
 
+import kotlin.reflect.KClassifier
+
 interface TypeNameable {
     val typeName: String
 }
@@ -25,43 +27,108 @@ enum class NativeType(override val typeName: String) : TypeNameable {
     INT("INT"), STRING("TEXT"), LONG("LONG"), BOOLEAN("INT"), DOUBLE("REAL"), ENUM("STRING")
 }
 
-interface GetValue<HIGHERCLASS : Any, T> {
-    fun get(higherClass: HIGHERCLASS): T
 
-    fun asString(higherClass: HIGHERCLASS): String {
-        return get(higherClass).toString()
-    }
-
+interface DatabaseReaderValueGetter {
     fun getValue(databaseReader: DatabaseReader, counter: Int): Any? {
         return databaseReader.next(counter)
     }
 }
 
+interface MapValue<T> : ValueInserter<T>, DatabaseReaderValueGetter
+class DefaultValueMapper<LOWERTYPE> : MapValue<LOWERTYPE> {
+    override fun insertValue(t: LOWERTYPE?): String {
+        return t.toString()
+    }
+}
+
+fun interface GetValue<HIGHER : Any, LOWER> {
+    fun get(higher: HIGHER): LOWER?
+}
+
+
+interface Member {
+    val clazz: KClassifier?
+    val name: String
+    val isMarkedNullable: Boolean
+}
+
+interface MemberValueGetter<HIGHERCLASS : Any, LOWERTYPE> : Member, GetValue<HIGHERCLASS, LOWERTYPE>
+
+inline fun <HIGHERCLASS : Any, reified LOWERTYPE> memberValueGetter(
+    name: String,
+    isMarkedNullable: Boolean,
+    noinline func: HIGHERCLASS.() -> LOWERTYPE
+) = memberValueGetterCreator(name, isMarkedNullable, func).toNativeTypeHandler()
+
+inline fun <HIGHERCLASS : Any, reified LOWERTYPE> memberValueGetterCreator(
+    name: String,
+    isMarkedNullable: Boolean,
+    noinline func: HIGHERCLASS.() -> LOWERTYPE
+) = NativeTypeMapperCreator(DefaultMemberValueGetter(LOWERTYPE::class, name, isMarkedNullable, func))
+
+class DefaultMemberValueGetter<HIGHERCLASS : Any, LOWERTYPE>(
+    override val clazz: KClassifier?,
+    override val name: String,
+    override val isMarkedNullable: Boolean,
+    val func: HIGHERCLASS.() -> LOWERTYPE
+) : MemberValueGetter<HIGHERCLASS, LOWERTYPE> {
+    override fun get(higher: HIGHERCLASS): LOWERTYPE? {
+        return higher.func()
+    }
+}
+
+class ObjectTypeMapperCreator<HIGHERCLASS : Any, LOWERTYPE>(val member: MemberValueGetter<HIGHERCLASS, LOWERTYPE>){
+    fun toObject():ObjectTypeHandler<HIGHERCLASS, LOWERTYPE> = ObjectTypeHandler<>()
+}
+
+class NativeTypeMapperCreator<HIGHERCLASS : Any, LOWERTYPE>(val member: MemberValueGetter<HIGHERCLASS, LOWERTYPE>) {
+
+    private val type: NativeType = when (member.clazz) {
+        Int::class -> NativeType.INT
+        Long::class -> NativeType.LONG
+        String::class -> NativeType.STRING
+        Double::class -> NativeType.DOUBLE
+        Boolean::class -> NativeType.BOOLEAN
+        else -> throw RuntimeException("unknown type: ${member.clazz}")
+    }
+
+    val mapValue = DecoratorFactory.getDecorator(type, DefaultValueMapper<LOWERTYPE>())
+
+    fun toNativeTypeHandler(): NativeTypeHandler<HIGHERCLASS, LOWERTYPE> =
+        NativeTypeHandler(
+            type,
+            member.name,
+            member.isMarkedNullable,
+            mapValue,
+            member,
+        )
+}
+
 object DecoratorFactory {
-    fun <HIGHERCLASS : Any> getDecorator(
+    fun <T> getDecorator(
         type: NativeType,
-        getValue: GetValue<HIGHERCLASS, *>
-    ): GetValue<HIGHERCLASS, *> {
+        getValue: MapValue<T>
+    ): MapValue<T> {
         @Suppress("UNCHECKED_CAST")
         return when (type) {
-            NativeType.BOOLEAN -> BooleanValueGetterDecorator(getValue as GetValue<HIGHERCLASS, Boolean?>)
-            NativeType.LONG -> LongValueGetterDecorator(getValue as GetValue<HIGHERCLASS, Long?>)
-            NativeType.STRING -> StringValueGetterDecorator(getValue as GetValue<HIGHERCLASS, String?>)
+            NativeType.BOOLEAN -> BooleanValueGetterDecorator(getValue as MapValue<Boolean?>) as MapValue<T>
+            NativeType.LONG -> LongValueGetterDecorator(getValue as MapValue<Long?>) as MapValue<T>
+            NativeType.STRING -> StringValueGetterDecorator(getValue as MapValue<String?>) as MapValue<T>
             else -> getValue
         }
     }
 }
 
-class LongValueGetterDecorator<HIGHERCLASS : Any>(val getValue: GetValue<HIGHERCLASS, Long?>) :
-    GetValue<HIGHERCLASS, Long?> by getValue {
+class LongValueGetterDecorator(val getValue: MapValue<Long?>) :
+    MapValue<Long?> by getValue {
     override fun getValue(databaseReader: DatabaseReader, counter: Int): Long? {
         return databaseReader.nextLong(counter)
     }
 }
 
-data class BooleanValueGetterDecorator<HIGHERCLASS : Any>(val getValue: GetValue<HIGHERCLASS, Boolean?>) :
-    GetValue<HIGHERCLASS, Boolean?> by getValue {
-    override fun asString(higherClass: HIGHERCLASS) = when (get(higherClass)) {
+data class BooleanValueGetterDecorator(val getValue: MapValue<Boolean?>) :
+    MapValue<Boolean?> by getValue {
+    override fun insertValue(t: Boolean?) = when (t) {
         null -> "null"
         true -> "1"
         else -> "0"
@@ -77,46 +144,29 @@ data class BooleanValueGetterDecorator<HIGHERCLASS : Any>(val getValue: GetValue
 }
 
 
-data class StringValueGetterDecorator<HIGHERCLASS : Any>(val getValue: GetValue<HIGHERCLASS, String?>) :
-    GetValue<HIGHERCLASS, String?> by getValue {
-    override fun asString(higherClass: HIGHERCLASS): String {
-        val get = get(higherClass)
-        return if (get == null) "null" else "\"${get}\""
+data class StringValueGetterDecorator(val getValue: MapValue<String?>) :
+    MapValue<String?> by getValue {
+    override fun insertValue(t: String?): String {
+        return if (t == null) "null" else "\"$t\""
     }
 }
 
-interface TypeHandler<T : TypeHandler<T>> : InsertHeadable, NullableElement, Headerable {
-    fun mapName(name: String): T
+interface ValueInserter<T> {
+    fun insertValue(t: T?): String
 }
 
+interface ValueInserterMapper<HIGHER : Any, T> : ValueInserter<T> {
+    fun toInsert(any: HIGHER?): String
+}
 
-data class NativeTypeHandler<HIGHERCLASS : Any, T>(
-    private val type: NativeType,
-    override val name: String,
-    override val isNullable: Boolean,
-    private val valueGetter: GetValue<HIGHERCLASS, T>
-) : TypeHandler<NativeTypeHandler<HIGHERCLASS, T>>, TypeNameable by type, Nameable {
-
-    override fun insertHead(): String {
-        return name
-    }
-
-    override fun toHeader(): String {
-        return "$name $typeName ${if (!isNullable) "NOT NULL" else ""}"
-    }
-
-    override fun mapName(name: String): NativeTypeHandler<HIGHERCLASS, T> {
-        return copy(name = "${name}_${this.name}")
-    }
-
-    fun insertValue(higherClass: HIGHERCLASS): String {
-        return valueGetter.asString(higherClass)
-    }
-
-    fun getValue(databaseRunner: DatabaseRunner): DatabaseRunner {
-        val t = valueGetter.getValue(databaseRunner.databaseReader, databaseRunner.count)
-        return databaseRunner.copy(count = databaseRunner.count + 1, list = databaseRunner.list + t)
+interface TypeHandler<HIGHER : Any, T, TYPEHANDLER : TypeHandler<HIGHER, T, TYPEHANDLER>> : InsertHeadable,
+    NullableElement, Headerable,
+    ValueInserterMapper<HIGHER, T> {
+    fun mapName(name: String): TYPEHANDLER
+    fun map(name: String): TypeHandler<HIGHER, *, *>{
+        return mapName(name)
     }
 }
+
 
 data class DatabaseRunner(val databaseReader: DatabaseReader, val count: Int, val list: List<Any?>)
