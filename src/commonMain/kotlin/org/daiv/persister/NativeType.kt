@@ -50,58 +50,78 @@ interface Member {
     val clazz: KClassifier?
     val name: String
     val isMarkedNullable: Boolean
+
+    fun getType(): NativeType? {
+        return when (clazz) {
+            Int::class -> NativeType.INT
+            Long::class -> NativeType.LONG
+            String::class -> NativeType.STRING
+            Double::class -> NativeType.DOUBLE
+            Boolean::class -> NativeType.BOOLEAN
+            else -> null
+        }
+    }
+
+    fun isNative() = getType() != null
 }
 
-interface MemberValueGetter<HIGHERCLASS : Any, LOWERTYPE> : Member, GetValue<HIGHERCLASS, LOWERTYPE>
+interface MemberValueGetter<HIGHERCLASS : Any, LOWERTYPE> : Member, GetValue<HIGHERCLASS, LOWERTYPE> {
+    fun getLowerMembers(): List<MemberValueGetter<*, *>>
+}
+
 
 inline fun <HIGHERCLASS : Any, reified LOWERTYPE> memberValueGetter(
     name: String,
     isMarkedNullable: Boolean,
+    members: List<MemberValueGetter<*, *>> = emptyList(),
     noinline func: HIGHERCLASS.() -> LOWERTYPE
-) = memberValueGetterCreator(name, isMarkedNullable, func).toNativeTypeHandler()
+) = memberValueGetterCreator(name, isMarkedNullable, members, func).toNativeTypeHandler()
 
 inline fun <HIGHERCLASS : Any, reified LOWERTYPE> memberValueGetterCreator(
     name: String,
     isMarkedNullable: Boolean,
+    members: List<MemberValueGetter<*, *>> = emptyList(),
     noinline func: HIGHERCLASS.() -> LOWERTYPE
-) = NativeTypeMapperCreator(DefaultMemberValueGetter(LOWERTYPE::class, name, isMarkedNullable, func))
+) = NativeTypeMapperCreator(DefaultMemberValueGetter(LOWERTYPE::class, name, isMarkedNullable, members, func))
 
 class DefaultMemberValueGetter<HIGHERCLASS : Any, LOWERTYPE>(
     override val clazz: KClassifier?,
     override val name: String,
     override val isMarkedNullable: Boolean,
+    val members: List<MemberValueGetter<*, *>> = emptyList(),
     val func: HIGHERCLASS.() -> LOWERTYPE
 ) : MemberValueGetter<HIGHERCLASS, LOWERTYPE> {
     override fun get(higher: HIGHERCLASS): LOWERTYPE? {
         return higher.func()
     }
+
+    override fun getLowerMembers(): List<MemberValueGetter<*, *>> {
+        return members
+    }
 }
 
-class ObjectTypeMapperCreator<HIGHERCLASS : Any, LOWERTYPE>(val member: MemberValueGetter<HIGHERCLASS, LOWERTYPE>){
-    fun toObject():ObjectTypeHandler<HIGHERCLASS, LOWERTYPE> = ObjectTypeHandler<>()
+class ObjectTypeMapperCreator<HIGHERCLASS : Any, LOWERTYPE : Any>(val member: MemberValueGetter<HIGHERCLASS, LOWERTYPE>) {
+
+//    fun toObject(moreKeys: MoreKeysData): ObjectTypeHandler<HIGHERCLASS, LOWERTYPE> =
+//        ObjectTypeHandler<HIGHERCLASS, LOWERTYPE>(member.isMarkedNullable, moreKeys, member.isMarkedNullable)
 }
 
 class NativeTypeMapperCreator<HIGHERCLASS : Any, LOWERTYPE>(val member: MemberValueGetter<HIGHERCLASS, LOWERTYPE>) {
 
-    private val type: NativeType = when (member.clazz) {
-        Int::class -> NativeType.INT
-        Long::class -> NativeType.LONG
-        String::class -> NativeType.STRING
-        Double::class -> NativeType.DOUBLE
-        Boolean::class -> NativeType.BOOLEAN
-        else -> throw RuntimeException("unknown type: ${member.clazz}")
-    }
+    private val type: NativeType = member.getType() ?: throw RuntimeException("unknown type: ${member.clazz}")
 
     val mapValue = DecoratorFactory.getDecorator(type, DefaultValueMapper<LOWERTYPE>())
 
-    fun toNativeTypeHandler(): NativeTypeHandler<HIGHERCLASS, LOWERTYPE> =
-        NativeTypeHandler(
+    fun toNativeTypeHandler(): NativeTypeHandler<HIGHERCLASS, LOWERTYPE> {
+        val n= NativeTypeHandler<HIGHERCLASS, LOWERTYPE>(
             type,
             member.name,
             member.isMarkedNullable,
             mapValue,
             member,
         )
+        return n
+    }
 }
 
 object DecoratorFactory {
@@ -163,7 +183,7 @@ interface TypeHandler<HIGHER : Any, T, TYPEHANDLER : TypeHandler<HIGHER, T, TYPE
     NullableElement, Headerable,
     ValueInserterMapper<HIGHER, T> {
     fun mapName(name: String): TYPEHANDLER
-    fun map(name: String): TypeHandler<HIGHER, *, *>{
+    fun map(name: String): TypeHandler<HIGHER, *, *> {
         return mapName(name)
     }
 }

@@ -15,6 +15,10 @@ class JvmNativeTypeMapperTest<T : Any> {
     fun test() {
         val member: KProperty1<Any, *> =
             IntHolder::class.declaredMemberProperties.first() as KProperty1<Any, *>
+
+        val x = IntHolder::class.declaredMemberProperties.map{
+            DefaultValueGetter(it)
+        }
         val getter = DefaultValueGetter(member)
         assertEquals(Int::class,getter.clazz)
         assertEquals("i",getter.name)

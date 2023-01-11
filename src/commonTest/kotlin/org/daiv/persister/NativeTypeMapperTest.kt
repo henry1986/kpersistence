@@ -15,7 +15,7 @@ class NativeTypeMapperTest<T : Any> {
         mapperClass: KClass<out MapValue<*>>,
         noinline func: HOLDER.() -> T
     ) {
-        val got = memberValueGetterCreator(name, false, func)
+        val got = memberValueGetterCreator(name, false, emptyList(), func)
         assertEquals(
             got.toNativeTypeHandler(),
             NativeTypeHandler(nativeType, name, false, got.mapValue, got.member)
