@@ -46,27 +46,23 @@ class TestComplexObjectType {
     @MoreKeys(2)
     data class ComplexObject(val m: ObjectTypeHandlerTest.MyObject, val x: Int, val s: String)
 
-    private val myObjectHandler = ObjectTypeRefHandler<ComplexObject, ObjectTypeHandlerTest.MyObject>(
-        "m",
-        false,
-        MoreKeysData(2, false),
-        listOf(
-            memberValueGetter("i", false) { i },
-            memberValueGetter("s", false) { s },
-            memberValueGetter("x", false) { x },
+    private val myObjectHandler = memberValueGetterCreator<ComplexObject, ObjectTypeHandlerTest.MyObject>(
+        "m", false, MoreKeysData(2), listOf(
+            memberValueGetterCreator("i", false) { i },
+            memberValueGetterCreator("s", false) { s },
+            memberValueGetterCreator("x", false) { x },
         )
-    ) { it.m }
+    ) { m }
+    private val complexObjectMember = listOf(myObjectHandler) + listOf(
+        memberValueGetterCreator<ComplexObject, Int>("x", false) { x },
+        memberValueGetterCreator<ComplexObject, String>("s", false) { s },
+    )
+
+    private val complexObjectTypeHandler = complexObjectMember.map { it.create() }
 
     @Test
     fun testObjectType() {
-        val handler = ObjectTypeHandler<Any, ComplexObject>(
-            false,
-            MoreKeysData(2, false),
-            listOf(myObjectHandler) + listOf(
-                memberValueGetter("x", false) { x },
-                memberValueGetter("s", false) { s },
-            )
-        )
+        val handler = ObjectTypeHandler<Any, ComplexObject>(false, MoreKeysData(2, false), complexObjectTypeHandler)
         assertEquals("m_i INT NOT NULL, m_s TEXT NOT NULL, x INT NOT NULL, s TEXT NOT NULL", handler.toHeader())
         assertEquals("m_i, m_s, x, s", handler.insertHead())
         assertEquals(
@@ -77,17 +73,10 @@ class TestComplexObjectType {
 
     @Test
     fun testObjectTypeRef() {
-        val handler = ObjectTypeRefHandler<Any, ComplexObject>(
-            "c",
-            false,
-            MoreKeysData(2, false),
-            listOf(myObjectHandler) + listOf(
-                memberValueGetter("x", false) { x },
-                memberValueGetter("s", false) { s },
-            )
-        ) {
-            throw RuntimeException("test should not use getValue")
-        }
+        val handler = memberValueGetterCreator<Any, ComplexObject>("c", false, MoreKeysData(2), complexObjectMember) {
+            throw RuntimeException()
+        }.create()
+
         assertEquals("c_m_i INT NOT NULL, c_m_s TEXT NOT NULL, c_x INT NOT NULL", handler.toHeader())
         assertEquals("c_m_i, c_m_s, c_x", handler.insertHead())
         assertEquals(
