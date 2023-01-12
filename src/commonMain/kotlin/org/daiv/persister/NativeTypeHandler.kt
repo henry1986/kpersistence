@@ -26,7 +26,7 @@ data class NativeTypeHandler<HIGHER : Any, T>(
         return insertValue(getValue.get(any))
     }
 
-    fun getValue(databaseRunner: DatabaseRunner): DatabaseRunner {
+    override fun getValue(databaseRunner: DatabaseRunner): DatabaseRunner {
         val t = mapValue.getValue(databaseRunner.databaseReader, databaseRunner.count)
         return databaseRunner.copy(count = databaseRunner.count + 1, list = databaseRunner.list + t)
     }

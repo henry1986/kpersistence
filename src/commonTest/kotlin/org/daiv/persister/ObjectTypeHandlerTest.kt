@@ -9,9 +9,7 @@ class ObjectTypeHandlerTest {
 
     @Test
     fun test() {
-        val handler = ObjectTypeHandler<Any, MyObject>(
-            false,
-            MoreKeysData(2, false),
+        val handler = ObjectTypeHandler<MyObject>(
             listOf(
                 memberValueGetter("i", false) { i },
                 memberValueGetter("s", false) { s },
@@ -40,6 +38,20 @@ class ObjectTypeHandlerTest {
         assertEquals("m_i, m_s", handler.insertHead())
         assertEquals("5, \"Hello\"", handler.insertValue(MyObject(5, "Hello", 90)))
     }
+
+    @Test
+    fun testDatabaseRead() {
+        val handler = ObjectTypeHandler<MyObject>(
+            listOf(
+                memberValueGetter("i", false) { i },
+                memberValueGetter("s", false) { s },
+                memberValueGetter("x", false) { x },
+            )
+        )
+        val toRead = listOf(5, "Hello", 90L)
+        val got = handler.getValue(DatabaseRunner(toRead))
+        assertEquals(toRead, got.list)
+    }
 }
 
 class TestComplexObjectType {
@@ -62,7 +74,7 @@ class TestComplexObjectType {
 
     @Test
     fun testObjectType() {
-        val handler = ObjectTypeHandler<Any, ComplexObject>(false, MoreKeysData(2, false), complexObjectTypeHandler)
+        val handler = ObjectTypeHandler(complexObjectTypeHandler)
         assertEquals("m_i INT NOT NULL, m_s TEXT NOT NULL, x INT NOT NULL, s TEXT NOT NULL", handler.toHeader())
         assertEquals("m_i, m_s, x, s", handler.insertHead())
         assertEquals(
@@ -84,4 +96,26 @@ class TestComplexObjectType {
             handler.insertValue(ComplexObject(ObjectTypeHandlerTest.MyObject(5, "Hello", 95L), 1, "World"))
         )
     }
+
+    @Test
+    fun testDatabaseRead() {
+        val handler = ObjectTypeHandler(complexObjectTypeHandler)
+        val toRead = listOf(5, "Hello", 1, "World")
+        val got = handler.getValue(DatabaseRunner(toRead))
+        assertEquals(toRead, got.list)
+    }
+}
+
+class ListTest {
+    class ListHolder(val key:Long, val list:List<ObjectTypeHandlerTest.MyObject>)
+//    @Test
+//    fun test() {
+//        ObjectTypeHandler(
+//            listOf(
+//                memberValueGetter<ListHolder, Long>("key", false) {  },
+//                memberValueGetter<List<ObjectTypeHandlerTest.MyObject>, Int>("index", false) {  },
+//                memberValueGetter<List<ObjectTypeHandlerTest.MyObject>, ObjectTypeHandlerTest.MyObject>("value", false) { get() },
+//            )
+//        )
+//    }
 }

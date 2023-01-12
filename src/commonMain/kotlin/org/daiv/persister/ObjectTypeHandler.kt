@@ -1,56 +1,54 @@
 package org.daiv.persister
 
-data class ObjectTypeHandler<HIGHER : Any, T : Any>(
-    override val isNullable: Boolean,
-    val moreKeys: MoreKeysData,
+interface ListHandler<T : Any> : InsertHeadable, ValueInserter<T>, Headerable, ReadFromDB {
     val nativeTypes: List<TypeHandler<T, *, *>>
-) : ValueInserterMapper<HIGHER, T>, NullableElement, InsertHeadable, Headerable {
 
     override fun insertHead(): String {
         return nativeTypes.joinToString(", ") { it.insertHead() }
-    }
-
-    override fun toHeader(): String {
-        return nativeTypes.joinToString(", ") { it.toHeader() }
     }
 
     override fun insertValue(t: T?): String {
         return nativeTypes.joinToString(", ") { it.toInsert(t) }
     }
 
-    override fun toInsert(any: HIGHER?): String {
-        TODO("Not yet implemented")
+    override fun toHeader(): String {
+        return nativeTypes.joinToString(", ") { it.toHeader() }
+    }
+
+    private fun recursiveRead(databaseRunner: DatabaseRunner, i: Int): DatabaseRunner {
+        if (i < nativeTypes.size) {
+            val n = nativeTypes[i]
+            val next = n.getValue(databaseRunner)
+            return recursiveRead(next, i + 1)
+        }
+        return databaseRunner
+    }
+
+    override fun getValue(databaseRunner: DatabaseRunner): DatabaseRunner {
+        return recursiveRead(databaseRunner, 0)
     }
 }
+
+data class ObjectTypeHandler<T : Any>(
+    override val nativeTypes: List<TypeHandler<T, *, *>>
+) : ValueInserter<T>, InsertHeadable, Headerable, ListHandler<T>
 
 data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
     override val name: String,
     override val isNullable: Boolean,
     val moreKeys: MoreKeysData,
-    val nativeTypes: List<TypeHandler<T, *, *>>,
+    val _nativeTypes: List<TypeHandler<T, *, *>>,
     val getValue: GetValue<HIGHER, T>
-) : TypeHandler<HIGHER, T, ObjectTypeRefHandler<HIGHER, T>>, Nameable {
+) : TypeHandler<HIGHER, T, ObjectTypeRefHandler<HIGHER, T>>, Nameable, ListHandler<T> {
 
-    private val keys = nativeTypes.take(moreKeys.amount).map { it.map(name) }
-
-    override fun insertHead(): String {
-        return keys.joinToString(", ") { it.insertHead() }
-    }
-
-    override fun toHeader(): String {
-        return keys.joinToString(", ") { it.toHeader() }
-    }
+    override val nativeTypes = _nativeTypes.take(moreKeys.amount).map { it.map(name) }
 
     override fun mapName(name: String): ObjectTypeRefHandler<HIGHER, T> {
         return copy(name = "${name}_${this.name}")
     }
 
-    override fun insertValue(t: T?): String {
-        return keys.joinToString(", ") { it.toInsert(t) }
-    }
-
     override fun toInsert(any: HIGHER?): String {
-        if(any == null){
+        if (any == null) {
             return "null"
         }
         return insertValue(getValue.get(any))

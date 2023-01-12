@@ -35,9 +35,20 @@ interface DatabaseReaderValueGetter {
 }
 
 interface MapValue<T> : ValueInserter<T>, DatabaseReaderValueGetter
-class DefaultValueMapper<LOWERTYPE> : MapValue<LOWERTYPE> {
+class DefaultValueMapper<LOWERTYPE>() : MapValue<LOWERTYPE> {
     override fun insertValue(t: LOWERTYPE?): String {
         return t.toString()
+    }
+
+    override fun equals(other: Any?): Boolean {
+//        if (this === other) return true
+//        if (other == null || this::class != other::class) return false
+        if(other == null) return false
+        return this::class == other::class
+    }
+
+    override fun hashCode(): Int {
+        return this::class.hashCode()
     }
 }
 
@@ -61,9 +72,19 @@ class LongValueGetterDecorator(val getValue: MapValue<Long?>) :
     override fun getValue(databaseReader: DatabaseReader, counter: Int): Long? {
         return databaseReader.nextLong(counter)
     }
+    override fun equals(other: Any?): Boolean {
+//        if (this === other) return true
+//        if (other == null || this::class != other::class) return false
+        if(other == null) return false
+        return this::class == other::class
+    }
+
+    override fun hashCode(): Int {
+        return this::class.hashCode()
+    }
 }
 
-data class BooleanValueGetterDecorator(val getValue: MapValue<Boolean?>) :
+class BooleanValueGetterDecorator(val getValue: MapValue<Boolean?>) :
     MapValue<Boolean?> by getValue {
     override fun insertValue(t: Boolean?) = when (t) {
         null -> "null"
@@ -78,13 +99,33 @@ data class BooleanValueGetterDecorator(val getValue: MapValue<Boolean?>) :
             else -> false
         }
     }
+    override fun equals(other: Any?): Boolean {
+//        if (this === other) return true
+//        if (other == null || this::class != other::class) return false
+        if(other == null) return false
+        return this::class == other::class
+    }
+
+    override fun hashCode(): Int {
+        return this::class.hashCode()
+    }
 }
 
 
-data class StringValueGetterDecorator(val getValue: MapValue<String?>) :
+class StringValueGetterDecorator(val getValue: MapValue<String?>) :
     MapValue<String?> by getValue {
     override fun insertValue(t: String?): String {
         return if (t == null) "null" else "\"$t\""
+    }
+    override fun equals(other: Any?): Boolean {
+//        if (this === other) return true
+//        if (other == null || this::class != other::class) return false
+        if(other == null) return false
+        return this::class == other::class
+    }
+
+    override fun hashCode(): Int {
+        return this::class.hashCode()
     }
 }
 
@@ -96,9 +137,14 @@ interface ValueInserterMapper<HIGHER : Any, T> : ValueInserter<T> {
     fun toInsert(any: HIGHER?): String
 }
 
+interface ReadFromDB {
+    fun getValue(databaseRunner: DatabaseRunner): DatabaseRunner
+}
+
 interface TypeHandler<HIGHER : Any, T, TYPEHANDLER : TypeHandler<HIGHER, T, TYPEHANDLER>> : InsertHeadable,
     NullableElement, Headerable,
-    ValueInserterMapper<HIGHER, T> {
+    ValueInserterMapper<HIGHER, T>,
+    ReadFromDB {
     fun mapName(name: String): TYPEHANDLER
     fun map(name: String): TypeHandler<HIGHER, *, *> {
         return mapName(name)
@@ -106,4 +152,6 @@ interface TypeHandler<HIGHER : Any, T, TYPEHANDLER : TypeHandler<HIGHER, T, TYPE
 }
 
 
-data class DatabaseRunner(val databaseReader: DatabaseReader, val count: Int, val list: List<Any?>)
+data class DatabaseRunner(val databaseReader: DatabaseReader, val count: Int, val list: List<Any?>){
+    constructor(list: List<Any?>):this(DefaultDatabaseReader(list), 1, emptyList())
+}
