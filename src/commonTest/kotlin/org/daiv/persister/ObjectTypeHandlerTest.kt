@@ -105,17 +105,3 @@ class TestComplexObjectType {
         assertEquals(toRead, got.list)
     }
 }
-
-class ListTest {
-    class ListHolder(val key:Long, val list:List<ObjectTypeHandlerTest.MyObject>)
-//    @Test
-//    fun test() {
-//        ObjectTypeHandler(
-//            listOf(
-//                memberValueGetter<ListHolder, Long>("key", false) {  },
-//                memberValueGetter<List<ObjectTypeHandlerTest.MyObject>, Int>("index", false) {  },
-//                memberValueGetter<List<ObjectTypeHandlerTest.MyObject>, ObjectTypeHandlerTest.MyObject>("value", false) { get() },
-//            )
-//        )
-//    }
-}

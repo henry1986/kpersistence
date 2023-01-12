@@ -88,14 +88,7 @@ object ObjectTypeMapperCreator : TypeHandlerFactory {
 object NativeTypeMapperCreator : TypeHandlerFactory {
     override fun <HIGHERCLASS : Any, LOWERTYPE : Any> create(member: MemberValueGetter<HIGHERCLASS, LOWERTYPE>): NativeTypeHandler<HIGHERCLASS, LOWERTYPE> {
         val type: NativeType = member.getType() ?: throw RuntimeException("unknown type: ${member.clazz}")
-        val mapValue = DecoratorFactory.getDecorator(type, DefaultValueMapper<LOWERTYPE>())
 
-        return NativeTypeHandler(
-            type,
-            member.name,
-            member.isMarkedNullable,
-            mapValue,
-            member,
-        )
+        return NativeTypeHandler(type, member.name, member.isMarkedNullable, member)
     }
 }

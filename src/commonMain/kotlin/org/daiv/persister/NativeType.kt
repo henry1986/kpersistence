@@ -1,7 +1,5 @@
 package org.daiv.persister
 
-import kotlin.reflect.KClassifier
-
 interface TypeNameable {
     val typeName: String
 }
@@ -30,7 +28,7 @@ enum class NativeType(override val typeName: String) : TypeNameable {
 
 interface DatabaseReaderValueGetter {
     fun getValue(databaseReader: DatabaseReader, counter: Int): Any? {
-        return databaseReader.next(counter)
+        return databaseReader.get(counter)
     }
 }
 
@@ -43,7 +41,7 @@ class DefaultValueMapper<LOWERTYPE>() : MapValue<LOWERTYPE> {
     override fun equals(other: Any?): Boolean {
 //        if (this === other) return true
 //        if (other == null || this::class != other::class) return false
-        if(other == null) return false
+        if (other == null) return false
         return this::class == other::class
     }
 
@@ -70,12 +68,13 @@ object DecoratorFactory {
 class LongValueGetterDecorator(val getValue: MapValue<Long?>) :
     MapValue<Long?> by getValue {
     override fun getValue(databaseReader: DatabaseReader, counter: Int): Long? {
-        return databaseReader.nextLong(counter)
+        return databaseReader.getLong(counter)
     }
+
     override fun equals(other: Any?): Boolean {
 //        if (this === other) return true
 //        if (other == null || this::class != other::class) return false
-        if(other == null) return false
+        if (other == null) return false
         return this::class == other::class
     }
 
@@ -93,16 +92,17 @@ class BooleanValueGetterDecorator(val getValue: MapValue<Boolean?>) :
     }
 
     override fun getValue(databaseReader: DatabaseReader, counter: Int): Boolean? {
-        return when (databaseReader.next(counter)) {
+        return when (databaseReader.get(counter)) {
             null -> null
             1 -> true
             else -> false
         }
     }
+
     override fun equals(other: Any?): Boolean {
 //        if (this === other) return true
 //        if (other == null || this::class != other::class) return false
-        if(other == null) return false
+        if (other == null) return false
         return this::class == other::class
     }
 
@@ -117,10 +117,11 @@ class StringValueGetterDecorator(val getValue: MapValue<String?>) :
     override fun insertValue(t: String?): String {
         return if (t == null) "null" else "\"$t\""
     }
+
     override fun equals(other: Any?): Boolean {
 //        if (this === other) return true
 //        if (other == null || this::class != other::class) return false
-        if(other == null) return false
+        if (other == null) return false
         return this::class == other::class
     }
 
@@ -137,21 +138,45 @@ interface ValueInserterMapper<HIGHER : Any, T> : ValueInserter<T> {
     fun toInsert(any: HIGHER?): String
 }
 
+interface ValueInserterWithGetter<HIGHER : Any, T> : ValueInserterMapper<HIGHER, T>, GetValue<HIGHER, T> {
+    override fun toInsert(any: HIGHER?): String {
+        if (any == null)
+            return "null"
+        return insertValue(get(any))
+    }
+}
+
 interface ReadFromDB {
     fun getValue(databaseRunner: DatabaseRunner): DatabaseRunner
 }
 
-interface TypeHandler<HIGHER : Any, T, TYPEHANDLER : TypeHandler<HIGHER, T, TYPEHANDLER>> : InsertHeadable,
-    NullableElement, Headerable,
-    ValueInserterMapper<HIGHER, T>,
-    ReadFromDB {
+interface NativeHeader : TypeNameable, Nameable, NullableElement, Headerable, InsertHeadable {
+    override fun insertHead(): String {
+        return name
+    }
+
+    override fun toHeader(): String {
+        return "$name $typeName ${if (!isNullable) "NOT NULL" else ""}"
+    }
+}
+
+interface TypeHandler<HIGHER : Any, T, TYPEHANDLER : TypeHandler<HIGHER, T, TYPEHANDLER>> :
+    ColTypeHandler<HIGHER, T, TYPEHANDLER>, ValueInserterMapper<HIGHER, T>{
+    override fun map(name: String): TypeHandler<HIGHER, *, *> {
+        return mapName(name)
+    }
+
+}
+
+interface ColTypeHandler<HIGHER : Any, T, TYPEHANDLER : ColTypeHandler<HIGHER, T, TYPEHANDLER>> : InsertHeadable,
+    NullableElement, Headerable, ReadFromDB, ValueInserter<T> {
     fun mapName(name: String): TYPEHANDLER
-    fun map(name: String): TypeHandler<HIGHER, *, *> {
+    fun map(name: String): ColTypeHandler<HIGHER, *, *> {
         return mapName(name)
     }
 }
 
 
-data class DatabaseRunner(val databaseReader: DatabaseReader, val count: Int, val list: List<Any?>){
-    constructor(list: List<Any?>):this(DefaultDatabaseReader(list), 1, emptyList())
+data class DatabaseRunner(val databaseReader: DatabaseReader, val count: Int, val list: List<Any?>) {
+    constructor(list: List<Any?>) : this(DefaultDatabaseReader.simple(list), 1, emptyList())
 }

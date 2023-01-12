@@ -19,7 +19,7 @@ class NativeTypeMapperTest<T : Any> {
         val n = NativeTypeMapperCreator.create(member)
         assertEquals(
             member.create(),
-            NativeTypeHandler(nativeType, name, false, n.mapValue, member)
+            NativeTypeHandler(nativeType, name, false, member)
         )
         assertEquals(mapperClass, n.mapValue::class)
     }
