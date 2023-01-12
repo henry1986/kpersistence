@@ -6,12 +6,13 @@ interface ListHandler<T : Any> : InsertHeadable, ValueInserter<T>, Headerable, R
     override fun insertHead(): String {
         return nativeTypes.joinToString(", ") { it.insertHead() }
     }
+
     override fun toHeader(): String {
         return nativeTypes.joinToString(", ") { it.toHeader() }
     }
 
-    override fun insertValue(t: T?): String {
-        return nativeTypes.joinToString(", ") { it.toInsert(t) }
+    override fun insertValue(t: T?): Row {
+        return nativeTypes.fold(Row()) { r1, r2 -> r1 + r2.toInsert(t) }
     }
 
     private fun recursiveRead(databaseRunner: DatabaseRunner, i: Int): DatabaseRunner {
@@ -46,9 +47,9 @@ data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
         return copy(name = "${name}_${this.name}")
     }
 
-    override fun toInsert(any: HIGHER?): String {
+    override fun toInsert(any: HIGHER?): Row {
         if (any == null) {
-            return "null"
+            return Row("null")
         }
         return insertValue(getValue.get(any))
     }

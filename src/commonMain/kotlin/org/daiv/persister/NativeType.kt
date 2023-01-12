@@ -34,8 +34,8 @@ interface DatabaseReaderValueGetter {
 
 interface MapValue<T> : ValueInserter<T>, DatabaseReaderValueGetter
 class DefaultValueMapper<LOWERTYPE>() : MapValue<LOWERTYPE> {
-    override fun insertValue(t: LOWERTYPE?): String {
-        return t.toString()
+    override fun insertValue(t: LOWERTYPE?): Row {
+        return Row(t.toString())
     }
 
     override fun equals(other: Any?): Boolean {
@@ -85,11 +85,13 @@ class LongValueGetterDecorator(val getValue: MapValue<Long?>) :
 
 class BooleanValueGetterDecorator(val getValue: MapValue<Boolean?>) :
     MapValue<Boolean?> by getValue {
-    override fun insertValue(t: Boolean?) = when (t) {
-        null -> "null"
-        true -> "1"
-        else -> "0"
-    }
+    override fun insertValue(t: Boolean?) = Row(
+        when (t) {
+            null -> "null"
+            true -> "1"
+            else -> "0"
+        }
+    )
 
     override fun getValue(databaseReader: DatabaseReader, counter: Int): Boolean? {
         return when (databaseReader.get(counter)) {
@@ -114,8 +116,8 @@ class BooleanValueGetterDecorator(val getValue: MapValue<Boolean?>) :
 
 class StringValueGetterDecorator(val getValue: MapValue<String?>) :
     MapValue<String?> by getValue {
-    override fun insertValue(t: String?): String {
-        return if (t == null) "null" else "\"$t\""
+    override fun insertValue(t: String?): Row {
+        return Row(if (t == null) "null" else "\"$t\"")
     }
 
     override fun equals(other: Any?): Boolean {
@@ -131,17 +133,17 @@ class StringValueGetterDecorator(val getValue: MapValue<String?>) :
 }
 
 interface ValueInserter<T> {
-    fun insertValue(t: T?): String
+    fun insertValue(t: T?): Row
 }
 
 interface ValueInserterMapper<HIGHER : Any, T> : ValueInserter<T> {
-    fun toInsert(any: HIGHER?): String
+    fun toInsert(any: HIGHER?): Row
 }
 
 interface ValueInserterWithGetter<HIGHER : Any, T> : ValueInserterMapper<HIGHER, T>, GetValue<HIGHER, T> {
-    override fun toInsert(any: HIGHER?): String {
+    override fun toInsert(any: HIGHER?): Row {
         if (any == null)
-            return "null"
+            return Row("null")
         return insertValue(get(any))
     }
 }
@@ -161,15 +163,21 @@ interface NativeHeader : TypeNameable, Nameable, NullableElement, Headerable, In
 }
 
 interface TypeHandler<HIGHER : Any, T, TYPEHANDLER : TypeHandler<HIGHER, T, TYPEHANDLER>> :
-    ColTypeHandler<HIGHER, T, TYPEHANDLER>, ValueInserterMapper<HIGHER, T>{
+    ColTypeHandler<HIGHER, T, TYPEHANDLER>, ValueInserterMapper<HIGHER, T> {
     override fun map(name: String): TypeHandler<HIGHER, *, *> {
         return mapName(name)
     }
 
 }
 
+interface NameBuilder : Nameable {
+    fun nextName(name: String): String {
+        return "${name}_${this.name}"
+    }
+}
+
 interface ColTypeHandler<HIGHER : Any, T, TYPEHANDLER : ColTypeHandler<HIGHER, T, TYPEHANDLER>> : InsertHeadable,
-    NullableElement, Headerable, ReadFromDB, ValueInserter<T> {
+    NullableElement, Headerable, ReadFromDB, ValueInserter<T>, NameBuilder {
     fun mapName(name: String): TYPEHANDLER
     fun map(name: String): ColTypeHandler<HIGHER, *, *> {
         return mapName(name)

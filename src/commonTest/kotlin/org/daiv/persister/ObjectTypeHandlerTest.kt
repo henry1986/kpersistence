@@ -20,7 +20,8 @@ class ObjectTypeHandlerTest {
             "i INT NOT NULL, s TEXT NOT NULL, x LONG NOT NULL", handler.toHeader()
         )
         assertEquals("i, s, x", handler.insertHead())
-        assertEquals("5, \"Hello\", 90", handler.insertValue(MyObject(5, "Hello", 90L)))
+        val insert = handler.insertValue(MyObject(5, "Hello", 90L))
+        assertEquals(Row("5", "\"Hello\"", "90"), insert)
     }
 
     @Test
@@ -36,7 +37,7 @@ class ObjectTypeHandlerTest {
         }
         assertEquals("m_i INT NOT NULL, m_s TEXT NOT NULL", handler.toHeader())
         assertEquals("m_i, m_s", handler.insertHead())
-        assertEquals("5, \"Hello\"", handler.insertValue(MyObject(5, "Hello", 90)))
+        assertEquals(Row("5", "\"Hello\""), handler.insertValue(MyObject(5, "Hello", 90)))
     }
 
     @Test
@@ -78,7 +79,7 @@ class TestComplexObjectType {
         assertEquals("m_i INT NOT NULL, m_s TEXT NOT NULL, x INT NOT NULL, s TEXT NOT NULL", handler.toHeader())
         assertEquals("m_i, m_s, x, s", handler.insertHead())
         assertEquals(
-            "5, \"Hello\", 1, \"World\"",
+            Row("5", "\"Hello\"", "1", "\"World\""),
             handler.insertValue(ComplexObject(ObjectTypeHandlerTest.MyObject(5, "Hello", 95L), 1, "World"))
         )
     }
@@ -92,7 +93,7 @@ class TestComplexObjectType {
         assertEquals("c_m_i INT NOT NULL, c_m_s TEXT NOT NULL, c_x INT NOT NULL", handler.toHeader())
         assertEquals("c_m_i, c_m_s, c_x", handler.insertHead())
         assertEquals(
-            "5, \"Hello\", 1",
+            Row("5", "\"Hello\"", "1"),
             handler.insertValue(ComplexObject(ObjectTypeHandlerTest.MyObject(5, "Hello", 95L), 1, "World"))
         )
     }
