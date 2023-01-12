@@ -12,7 +12,7 @@ class ListTypeHandlerTest {
             ListNativeTypeHandler(NativeType.INT, "key_i", false),
             ListNativeTypeHandler(NativeType.INT, "index", false),
             ListNativeTypeHandler(NativeType.INT, "value_l", false),
-            object:ListTypeReader<Int, ListHolder, Int, Int>{
+            object : ListTypeReader<Int, ListHolder, Int, Int> {
                 override fun getList(listHolder: ListHolder): Map<Int, Int> {
                     return listHolder.l.asMap()
                 }
@@ -25,5 +25,8 @@ class ListTypeHandlerTest {
         assertEquals("key_i INT NOT NULL, index INT NOT NULL, value_l INT NOT NULL", l.toHeader())
         assertEquals("key_i, index, value_l", l.insertHead())
         assertEquals(listOf(Row("5", "0", "6"), Row("5", "1", "7")), l.insertValue(ListHolder(5, listOf(6, 7))))
+        val got = l.getValue(DatabaseRunner(DefaultDatabaseReader(listOf(listOf(5, 0, 6), listOf(5, 1, 7), listOf(5, 2, 8))), 1, emptyList())).list
+//        assertEquals()
+        println("list: $got")
     }
 }

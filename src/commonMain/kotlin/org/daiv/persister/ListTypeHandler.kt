@@ -32,20 +32,22 @@ data class ListTypeHandler<PRIMARYKEY, LISTHOLDER : Any, LISTELEMENT, LISTKEY>(
     fun insertValue(t: LISTHOLDER): List<Row> {
         val list = listReader.getList(t)
         val key = primaryHandler.insertValue(listReader.getPrimaryKey(t))
-        return list.keys.map {
-            key + keyHandler.insertValue(it) + valueHandler.insertValue(list[it])
+        return list.map {
+            key + keyHandler.insertValue(it.key) + valueHandler.insertValue(it.value)
         }
     }
 
     private fun getValues(databaseRunner: DatabaseRunner): DatabaseRunner {
-        return valueHandler.getValue(keyHandler.getValue(primaryHandler.getValue(databaseRunner)))
+        val n = keyHandler.getValue(primaryHandler.getValue(databaseRunner))
+        return valueHandler.getValue(n)
     }
 
     fun getValue(databaseRunner: DatabaseRunner): DatabaseRunner {
-        var dbr = getValues(databaseRunner)
-        while (dbr.databaseReader.next()) {
-            dbr = getValues(dbr)
+        var pair = getValues(databaseRunner).next()
+        while (pair.second) {
+            val dbr = getValues(pair.first)
+            pair = dbr.next()
         }
-        return dbr
+        return pair.first
     }
 }

@@ -14,7 +14,9 @@ class DefaultDatabaseReader(val list: List<List<Any?>>) : DatabaseReader {
     private var counter: Int = 0
 
     override fun get(i: Int): Any? {
-        return list[counter][i - 1]
+        return list[counter].getOrElse(i - 1){
+            throw RuntimeException("failed with $i")
+        }
     }
 
     override fun getLong(i: Int): Long? {
@@ -22,7 +24,7 @@ class DefaultDatabaseReader(val list: List<List<Any?>>) : DatabaseReader {
     }
 
     override fun next(): Boolean {
-        if (counter < list.size) {
+        if (counter < list.size - 1) {
             counter++
             return true
         }

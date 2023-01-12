@@ -187,4 +187,8 @@ interface ColTypeHandler<HIGHER : Any, T, TYPEHANDLER : ColTypeHandler<HIGHER, T
 
 data class DatabaseRunner(val databaseReader: DatabaseReader, val count: Int, val list: List<Any?>) {
     constructor(list: List<Any?>) : this(DefaultDatabaseReader.simple(list), 1, emptyList())
+
+    fun next(): Pair<DatabaseRunner, Boolean> {
+        return copy(count = 1) to databaseReader.next()
+    }
 }
