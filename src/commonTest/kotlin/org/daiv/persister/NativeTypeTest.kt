@@ -7,7 +7,7 @@ class NativeTypeTest {
 
     @Test
     fun testNativeType() {
-        val handler = memberValueGetter<Any, Int>("i", false) {
+        val handler = memberValueGetter<Any, Int>("i", false, creation = { Any() }) {
             throw RuntimeException("test should not use getValue")
         } as NativeTypeHandler
         assertEquals(Row("5"), handler.insertValue(5))

@@ -30,7 +30,13 @@ class DefaultTableCollector private constructor(
     )
 
     override fun <T : Any> getTableReader(clazz: KClass<T>): TableReader<T?>? {
-        return map[clazz] as TableReader<T?>
+        val t = map[clazz]
+        try {
+            t as TableReader<T?>
+        } catch (t: Throwable) {
+            throw t
+        }
+        return t
     }
 
     override fun <T : Any, R : Any> getCollectionTableReader(clazz: KClass<T>, fieldName: String?): TableReader<R?>? {

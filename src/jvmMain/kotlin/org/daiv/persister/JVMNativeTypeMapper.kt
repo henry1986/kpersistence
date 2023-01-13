@@ -1,7 +1,7 @@
 package org.daiv.persister
 
 import kotlin.reflect.KClass
-import kotlin.reflect.KClassifier
+import kotlin.reflect.KFunction
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
 import kotlin.reflect.full.findAnnotation
@@ -12,8 +12,10 @@ fun <T : Any> KClass<T>.memberInConstructorOrder(): List<KProperty1<T, *>> {
     return primaryConstructor!!.parameters.map { p -> declaredMemberProperties.find { it.name == p.name }!! }
 }
 
-data class DefaultValueGetter<HIGHERCLASS : Any, LOWERTYPE : Any>(val member: KProperty1<HIGHERCLASS, LOWERTYPE?>) :
-    MemberValueGetter<HIGHERCLASS, LOWERTYPE> {
+data class DefaultValueGetter<HIGHERCLASS : Any, LOWERTYPE : Any>(
+    val member: KProperty1<HIGHERCLASS, LOWERTYPE?>,
+    val primaryConstructor: KFunction<HIGHERCLASS>
+) : MemberValueGetter<HIGHERCLASS, LOWERTYPE> {
     override val moreKeys: MoreKeysData
         get() = member.findAnnotation<MoreKeys>().default().toMoreKeysData()
 
@@ -21,10 +23,18 @@ data class DefaultValueGetter<HIGHERCLASS : Any, LOWERTYPE : Any>(val member: KP
         return member.get(higher)
     }
 
+    override fun createValue(vararg args: Any?): HIGHERCLASS {
+        return primaryConstructor.call(args)
+    }
+
     override fun getLowerMembers(): List<MemberValueGetter<LOWERTYPE, *>> {
         val clazz = member.returnType.classifier as KClass<LOWERTYPE>
         val x: List<DefaultValueGetter<LOWERTYPE, Any>> = clazz.memberInConstructorOrder().map {
-            DefaultValueGetter(it)
+            DefaultValueGetter(
+                it,
+                clazz.primaryConstructor
+                    ?: throw RuntimeException("no primary constructor for class ${clazz.qualifiedName}")
+            )
         }
         return x
     }

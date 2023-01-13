@@ -2,22 +2,31 @@ package org.daiv.persister
 
 import kotlin.reflect.KClass
 
-interface HeaderBuilder<T> : InsertHeadable, Headerable where T : Headerable, T : InsertHeadable {
-    val nativeTypes: List<T>
-    override fun insertHead(): Row {
-        return nativeTypes.fold(Row()) { r1, r2 -> r1 + r2.insertHead() }
-    }
 
-    override fun toHeader(): Row {
-        return nativeTypes.fold(Row()) { r1, r2 -> r1 + r2.toHeader() }
+interface FoldList<T>{
+    val nativeTypes: List<T>
+
+    fun foldList(func: T.() -> Row): Row {
+        return nativeTypes.fold(Row()) { r1, r2 -> r1 + r2.func() }
     }
 }
 
-interface ListHandler<T : Any> : ValueInserter<T>, ReadFromDB, HeaderBuilder<TypeHandler<T, *>> {
+interface HeaderBuilder<T> : InsertHeadable, Headerable, FoldList<T> where T : Headerable, T : InsertHeadable {
+
+    override fun insertHead(): Row {
+        return foldList { insertHead() }
+    }
+
+    override fun toHeader(): Row {
+        return foldList { toHeader() }
+    }
+}
+
+interface MainObjectHandler<T : Any> : ReadFromDB, HeaderBuilder<TypeHandler<T, *>>, ValueInserter<T> {
     override val nativeTypes: List<TypeHandler<T, *>>
 
     override fun insertValue(t: T?): Row {
-        return nativeTypes.fold(Row()) { r1, r2 -> r1 + r2.toInsert(t) }
+        return foldList { toInsert(t) }
     }
 
     private fun recursiveRead(databaseRunner: DatabaseRunner, i: Int): DatabaseRunner {
@@ -35,19 +44,15 @@ interface ListHandler<T : Any> : ValueInserter<T>, ReadFromDB, HeaderBuilder<Typ
 }
 
 inline fun <reified T : Any> objectType(nativeTypes: List<TypeHandler<T, *>>) = ObjectTypeHandler(nativeTypes, T::class)
-interface Classable<T:Any>{
+interface Classable<T : Any> {
     val clazz: KClass<T>
-}
-interface ToValueImplemenation<T:Any>:ToValueable<T>, Classable<T>{
-    override fun toValue(list: List<Any?>, tableCollector: TableCollector): T? {
-        return tableCollector.getTableReader(clazz)?.readFromTable(list)
-    }
 }
 
 data class ObjectTypeHandler<T : Any>(
     override val nativeTypes: List<TypeHandler<T, *>>,
-    override val clazz: KClass<T>,
-) : ValueInserter<T>, InsertHeadable, Headerable, ListHandler<T>, ToValueImplemenation<T> {
+    val clazz: KClass<T>,
+) : ValueInserter<T>, InsertHeadable, Headerable, MainObjectHandler<T> {
+
 }
 
 data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
@@ -57,9 +62,13 @@ data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
     val moreKeys: MoreKeysData,
     val _nativeTypes: List<TypeHandler<T, *>>,
     val getValue: GetValue<HIGHER, T>
-) : TypeHandler<HIGHER, T>, Nameable, ListHandler<T>, ToValueImplemenation<T> {
+) : TypeHandler<HIGHER, T>, Nameable, MainObjectHandler<T>, ToValueable<T>, Classable<T> {
 
     override val nativeTypes = _nativeTypes.take(moreKeys.amount).map { it.mapName(name) }
+
+    override fun toValue(list: List<Any?>, tableCollector: TableCollector): T? {
+        return tableCollector.getTableReader(clazz)?.readFromTable(list)
+    }
 
     override val numberOfColumns: Int = nativeTypes.sumOf { it.numberOfColumns }
 

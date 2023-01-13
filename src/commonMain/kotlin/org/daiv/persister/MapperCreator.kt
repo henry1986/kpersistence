@@ -37,6 +37,8 @@ interface MemberValueGetter<HOLDERCLASS : Any, LOWERTYPE : Any> : Member<HOLDERC
     GetValue<HOLDERCLASS, LOWERTYPE> {
     fun getLowerMembers(): List<MemberValueGetter<LOWERTYPE, *>>
 
+    fun createValue(vararg args: Any?): HOLDERCLASS
+
     fun create(): TypeHandler<HOLDERCLASS, LOWERTYPE> {
         val type = getType()
         return when {
@@ -52,16 +54,27 @@ inline fun <reified HOLDER : Any, reified MEMBERTYPE : Any> memberValueGetter(
     isMarkedNullable: Boolean,
     moreKeys: MoreKeysData = MoreKeysData(1, false),
     members: List<MemberValueGetter<MEMBERTYPE, *>> = emptyList(),
+    noinline creation: (List<Any?>) -> HOLDER,
     noinline func: HOLDER.() -> MEMBERTYPE
-) = memberValueGetterCreator(name, isMarkedNullable, moreKeys, members, func).create()
+) = memberValueGetterCreator(name, isMarkedNullable, moreKeys, members, creation, func).create()
 
 inline fun <reified HOLDER : Any, reified MEMBERTYPE : Any> memberValueGetterCreator(
     name: String,
     isMarkedNullable: Boolean,
     moreKeys: MoreKeysData = MoreKeysData(1, false),
     members: List<MemberValueGetter<MEMBERTYPE, *>> = emptyList(),
+    noinline creation: (List<Any?>) -> HOLDER,
     noinline func: HOLDER.() -> MEMBERTYPE
-) = DefaultMemberValueGetter(HOLDER::class, MEMBERTYPE::class, name, isMarkedNullable, moreKeys, members, func)
+) = DefaultMemberValueGetter(
+    HOLDER::class,
+    MEMBERTYPE::class,
+    name,
+    isMarkedNullable,
+    moreKeys,
+    members,
+    creation,
+    func
+)
 
 class DefaultMemberValueGetter<HOLDER : Any, MEMBER : Any>(
     override val holderClass: KClass<HOLDER>,
@@ -70,10 +83,15 @@ class DefaultMemberValueGetter<HOLDER : Any, MEMBER : Any>(
     override val isMarkedNullable: Boolean,
     override val moreKeys: MoreKeysData,
     val members: List<MemberValueGetter<MEMBER, out Any>> = emptyList(),
+    val creation: (List<Any?>) -> HOLDER,
     val func: HOLDER.() -> MEMBER
 ) : MemberValueGetter<HOLDER, MEMBER> {
     override fun get(higher: HOLDER): MEMBER? {
         return higher.func()
+    }
+
+    override fun createValue(vararg args: Any?): HOLDER {
+        return creation(args.asList())
     }
 
     override fun getLowerMembers(): List<MemberValueGetter<MEMBER, *>> {
@@ -103,7 +121,6 @@ object ObjectTypeMapperCreator : TypeHandlerFactory {
 object NativeTypeMapperCreator : TypeHandlerFactory {
     override fun <HIGHERCLASS : Any, LOWERTYPE : Any> create(member: MemberValueGetter<HIGHERCLASS, LOWERTYPE>): NativeTypeHandler<HIGHERCLASS, LOWERTYPE> {
         val type: NativeType = member.getType() ?: throw RuntimeException("unknown type: ${member.memberClass}")
-
         return NativeTypeHandler(type, member.name, member.isMarkedNullable, member)
     }
 }

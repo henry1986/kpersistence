@@ -15,7 +15,7 @@ class ListTypeHandlerTest {
 
     val listHolderHandler = objectType(
         listOf(
-            memberValueGetter<ListHolder, Int>("i", false) { i },
+            memberValueGetter<ListHolder, Int>("i", false, creation = { ListHolder(it[0] as Int, it[1] as List<Int>) }) { i },
             collection("l", false)
         )
     )
@@ -55,7 +55,15 @@ class ListTypeHandlerTest {
     fun testToListHolder() {
 //        val read =
 //            listHolderHandler.getValue(DatabaseRunner(DefaultDatabaseReader(listOf(listOf(5))), 1)).rows.first().list
-//        listHolderHandler.toValue(read, DefaultTableCollector(emptyList(), emptyMap()))
+//        val v = listHolderHandler.toValue(
+//            read, DefaultTableCollector(
+//                emptyList(), mapOf(
+//                    (ListHolder::class to "l") to DefaultTableReader(
+//                        mapOf(listOf(5) to listOf(7, 8, 9))
+//                    )
+//                )
+//            )
+//        )
+//        assertEquals(ListHolder(5, listOf(7, 8, 9)), v)
     }
-
 }
