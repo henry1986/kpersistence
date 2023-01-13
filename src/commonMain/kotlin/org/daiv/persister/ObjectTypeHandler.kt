@@ -4,12 +4,12 @@ import kotlin.reflect.KClass
 
 interface HeaderBuilder<T> : InsertHeadable, Headerable where T : Headerable, T : InsertHeadable {
     val nativeTypes: List<T>
-    override fun insertHead(): String {
-        return nativeTypes.joinToString(", ") { it.insertHead() }
+    override fun insertHead(): Row {
+        return nativeTypes.fold(Row()) { r1, r2 -> r1 + r2.insertHead() }
     }
 
-    override fun toHeader(): String {
-        return nativeTypes.joinToString(", ") { it.toHeader() }
+    override fun toHeader(): Row {
+        return nativeTypes.fold(Row()) { r1, r2 -> r1 + r2.toHeader() }
     }
 }
 

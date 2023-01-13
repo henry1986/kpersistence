@@ -27,17 +27,17 @@ class ObjectTypeHandlerTest {
     @Test
     fun test() {
         assertEquals(
-            "i INT NOT NULL, s TEXT NOT NULL, x LONG NOT NULL", handler.toHeader()
+            Row("i INT NOT NULL", "s TEXT NOT NULL", "x LONG NOT NULL"), handler.toHeader()
         )
-        assertEquals("i, s, x", handler.insertHead())
+        assertEquals(Row("i", "s", "x"), handler.insertHead())
         val insert = handler.insertValue(MyObject(5, "Hello", 90L))
         assertEquals(Row("5", "\"Hello\"", "90"), insert)
     }
 
     @Test
     fun testRefHandler() {
-        assertEquals("m_i INT NOT NULL, m_s TEXT NOT NULL", refHandler.toHeader())
-        assertEquals("m_i, m_s", refHandler.insertHead())
+        assertEquals(Row("m_i INT NOT NULL", "m_s TEXT NOT NULL"), refHandler.toHeader())
+        assertEquals(Row("m_i", "m_s"), refHandler.insertHead())
         assertEquals(Row("5", "\"Hello\""), refHandler.insertValue(MyObject(5, "Hello", 90)))
     }
 
@@ -82,8 +82,11 @@ class TestComplexObjectType {
     @Test
     fun testObjectType() {
         val handler = ObjectTypeHandler(complexObjectTypeHandler)
-        assertEquals("m_i INT NOT NULL, m_s TEXT NOT NULL, x INT NOT NULL, s TEXT NOT NULL", handler.toHeader())
-        assertEquals("m_i, m_s, x, s", handler.insertHead())
+        assertEquals(
+            Row("m_i INT NOT NULL", "m_s TEXT NOT NULL", "x INT NOT NULL", "s TEXT NOT NULL"),
+            handler.toHeader()
+        )
+        assertEquals(Row("m_i", "m_s", "x", "s"), handler.insertHead())
         assertEquals(
             Row("5", "\"Hello\"", "1", "\"World\""),
             handler.insertValue(ComplexObject(ObjectTypeHandlerTest.MyObject(5, "Hello", 95L), 1, "World"))
@@ -96,8 +99,8 @@ class TestComplexObjectType {
             throw RuntimeException()
         }.create()
 
-        assertEquals("c_m_i INT NOT NULL, c_m_s TEXT NOT NULL, c_x INT NOT NULL", handler.toHeader())
-        assertEquals("c_m_i, c_m_s, c_x", handler.insertHead())
+        assertEquals(Row("c_m_i INT NOT NULL", "c_m_s TEXT NOT NULL", "c_x INT NOT NULL"), handler.toHeader())
+        assertEquals(Row("c_m_i", "c_m_s", "c_x"), handler.insertHead())
         assertEquals(
             Row("5", "\"Hello\"", "1"),
             handler.insertValue(ComplexObject(ObjectTypeHandlerTest.MyObject(5, "Hello", 95L), 1, "World"))

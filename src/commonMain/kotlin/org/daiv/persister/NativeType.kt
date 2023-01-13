@@ -7,7 +7,7 @@ interface TypeNameable {
 }
 
 interface InsertHeadable {
-    fun insertHead(): String
+    fun insertHead(): Row
 }
 
 interface Nameable {
@@ -19,13 +19,13 @@ interface NullableElement {
 }
 
 interface Headerable {
-    fun toHeader(): String
+    fun toHeader(): Row
 }
 
 
 enum class NativeType(override val typeName: String) : TypeNameable {
     INT("INT"), STRING("TEXT"), LONG("LONG"), BOOLEAN("INT"), DOUBLE("REAL"), ENUM("STRING"),
-    
+
     MAP("MAP"), LIST("LIST"), SET("SET")
 }
 
@@ -150,11 +150,11 @@ interface ValueInserter<T> {
     fun insertValue(t: T?): Row
 }
 
-interface ValueInserterMapper<HIGHER : Any, T> : ValueInserter<T> {
+interface ValueInserterMapper<HIGHER : Any>  {
     fun toInsert(any: HIGHER?): Row
 }
 
-interface ValueInserterWithGetter<HIGHER : Any, T> : ValueInserterMapper<HIGHER, T>, GetValue<HIGHER, T> {
+interface ValueInserterWithGetter<HIGHER : Any, T> : ValueInserterMapper<HIGHER>, GetValue<HIGHER, T>, ValueInserter<T> {
     override fun toInsert(any: HIGHER?): Row {
         if (any == null)
             return Row("null")
@@ -167,16 +167,16 @@ interface ReadFromDB {
 }
 
 interface NativeHeader : TypeNameable, Nameable, NullableElement, Headerable, InsertHeadable {
-    override fun insertHead(): String {
-        return name
+    override fun insertHead(): Row {
+        return Row(name)
     }
 
-    override fun toHeader(): String {
-        return "$name $typeName ${if (!isNullable) "NOT NULL" else ""}"
+    override fun toHeader(): Row {
+        return Row("$name $typeName ${if (!isNullable) "NOT NULL" else ""}")
     }
 }
 
-interface TypeHandler<HIGHER : Any, T> : ColTypeHandler<T>, ValueInserterMapper<HIGHER, T> {
+interface TypeHandler<HIGHER : Any, T> : ColTypeHandler<T>, ValueInserterMapper<HIGHER>, ValueInserter<T> {
     override fun mapName(name: String): TypeHandler<HIGHER, T>
 }
 

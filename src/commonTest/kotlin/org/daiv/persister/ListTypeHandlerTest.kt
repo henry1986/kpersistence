@@ -15,8 +15,8 @@ class ListTypeHandlerTest {
 
     @Test
     fun test() {
-        assertEquals("key_i INT NOT NULL, index INT NOT NULL, value_l INT NOT NULL", listTypeHandler.toHeader())
-        assertEquals("key_i, index, value_l", listTypeHandler.insertHead())
+        assertEquals(Row("key_i INT NOT NULL", "index INT NOT NULL", "value_l INT NOT NULL"), listTypeHandler.toHeader())
+        assertEquals(Row("key_i", "index", "value_l"), listTypeHandler.insertHead())
         assertEquals(
             listOf(Row("5", "0", "6"), Row("5", "1", "7")),
             listTypeHandler.insertValue(ListHolder(5, listOf(6, 7)))

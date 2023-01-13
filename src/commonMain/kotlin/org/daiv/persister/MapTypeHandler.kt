@@ -87,6 +87,28 @@ interface ThreeColumnable<COLKEY, COLELEMENT> : CollectionValueGetIterator {
         }
     }
 }
+interface EmptyHeader<MAPHOLDER : Any, T> : Headerable, InsertHeadable, ReadFromDB, ValueInserter<T>,
+    ValueInserterMapper<MAPHOLDER> {
+    override fun insertHead(): Row {
+        return Row()
+    }
+
+    override fun toHeader(): Row {
+        return Row()
+    }
+
+    override fun getValue(databaseRunner: DatabaseRunner): DatabaseRunner {
+        return databaseRunner
+    }
+
+    override fun insertValue(t: T?): Row {
+        return Row()
+    }
+
+    override fun toInsert(any: MAPHOLDER?): Row {
+        return Row()
+    }
+}
 
 data class MapTypeHandler<PRIMARYKEY, MAPHOLDER : Any, MAPVALUE, MAPKEY>(
     override val primaryHandler: ColTypeHandler<PRIMARYKEY>,
@@ -109,6 +131,22 @@ data class MapTypeHandler<PRIMARYKEY, MAPHOLDER : Any, MAPVALUE, MAPKEY>(
 
     fun getMap(rows: List<DRow>, tableCollector: TableCollector): Map<MAPKEY?, MAPVALUE?> {
         return map(rows, tableCollector).toMap()
+    }
+}
+
+data class MapTypeHandlerRef<MAPHOLDER : Any, MAPVALUE, MAPKEY>(
+    override val name: String,
+    override val isNullable: Boolean,
+) : TypeHandler<MAPHOLDER, Map<MAPKEY, MAPVALUE>>, EmptyHeader<MAPHOLDER, Map<MAPKEY, MAPVALUE>>, NameBuilder {
+
+    override val numberOfColumns: Int = 0
+
+    override fun toValue(list: List<Any?>, tableCollector: TableCollector): Map<MAPKEY, MAPVALUE>? {
+        TODO("Not yet implemented")
+    }
+
+    override fun mapName(name: String): TypeHandler<MAPHOLDER, Map<MAPKEY, MAPVALUE>> {
+        return copy(name = nextName(name))
     }
 }
 
