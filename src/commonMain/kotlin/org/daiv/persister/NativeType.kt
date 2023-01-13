@@ -23,19 +23,18 @@ interface Headerable {
 }
 
 
-enum class NativeType(override val typeName: String) : TypeNameable {
+enum class NativeType(override val typeName: String, val isNative: Boolean = true, val isCollection: Boolean = false) :
+    TypeNameable {
     INT("INT"), STRING("TEXT"), LONG("LONG"), BOOLEAN("INT"), DOUBLE("REAL"), ENUM("STRING"),
 
-    MAP("MAP"), LIST("LIST"), SET("SET")
+    MAP("MAP", false, true), LIST("LIST", false, true), SET("SET", false, true)
 }
-
 
 interface DatabaseReaderValueGetter {
     fun getValue(databaseReader: DatabaseReader, counter: Int): Any? {
         return databaseReader.get(counter)
     }
 }
-
 
 interface ToValueable<T> {
     fun toValue(list: List<Any?>, tableCollector: TableCollector): T?
@@ -116,8 +115,6 @@ class BooleanValueGetterDecorator(val getValue: MapValue<Boolean?>) :
     }
 
     override fun equals(other: Any?): Boolean {
-//        if (this === other) return true
-//        if (other == null || this::class != other::class) return false
         if (other == null) return false
         return this::class == other::class
     }
@@ -135,8 +132,6 @@ class StringValueGetterDecorator(val getValue: MapValue<String?>) :
     }
 
     override fun equals(other: Any?): Boolean {
-//        if (this === other) return true
-//        if (other == null || this::class != other::class) return false
         if (other == null) return false
         return this::class == other::class
     }
@@ -150,11 +145,12 @@ interface ValueInserter<T> {
     fun insertValue(t: T?): Row
 }
 
-interface ValueInserterMapper<HIGHER : Any>  {
+interface ValueInserterMapper<HIGHER : Any> {
     fun toInsert(any: HIGHER?): Row
 }
 
-interface ValueInserterWithGetter<HIGHER : Any, T> : ValueInserterMapper<HIGHER>, GetValue<HIGHER, T>, ValueInserter<T> {
+interface ValueInserterWithGetter<HIGHER : Any, T> : ValueInserterMapper<HIGHER>, GetValue<HIGHER, T>,
+    ValueInserter<T> {
     override fun toInsert(any: HIGHER?): Row {
         if (any == null)
             return Row("null")

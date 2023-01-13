@@ -1,5 +1,7 @@
 package org.daiv.persister
 
+import kotlin.reflect.KClass
+
 
 fun interface PrimaryKeyGetter<HOLDER, KEY> {
     fun getPrimaryKey(listHolder: HOLDER): KEY
@@ -87,6 +89,7 @@ interface ThreeColumnable<COLKEY, COLELEMENT> : CollectionValueGetIterator {
         }
     }
 }
+
 interface EmptyHeader<MAPHOLDER : Any, T> : Headerable, InsertHeadable, ReadFromDB, ValueInserter<T>,
     ValueInserterMapper<MAPHOLDER> {
     override fun insertHead(): Row {
@@ -134,18 +137,23 @@ data class MapTypeHandler<PRIMARYKEY, MAPHOLDER : Any, MAPVALUE, MAPKEY>(
     }
 }
 
-data class MapTypeHandlerRef<MAPHOLDER : Any, MAPVALUE, MAPKEY>(
+inline fun <reified HOLDER : Any> collection(name: String, isNullable: Boolean) =
+    CollectionTypeHandlerRef<HOLDER, Any>(name, isNullable, HOLDER::class)
+
+data class CollectionTypeHandlerRef<HOLDER : Any, T : Any>(
     override val name: String,
     override val isNullable: Boolean,
-) : TypeHandler<MAPHOLDER, Map<MAPKEY, MAPVALUE>>, EmptyHeader<MAPHOLDER, Map<MAPKEY, MAPVALUE>>, NameBuilder {
+    val clazz: KClass<HOLDER>
+) : TypeHandler<HOLDER, T>, EmptyHeader<HOLDER, T>, NameBuilder {
 
     override val numberOfColumns: Int = 0
 
-    override fun toValue(list: List<Any?>, tableCollector: TableCollector): Map<MAPKEY, MAPVALUE>? {
-        TODO("Not yet implemented")
+    override fun toValue(list: List<Any?>, tableCollector: TableCollector): T? {
+        return tableCollector.getCollectionTableReader<HOLDER, T>(clazz, name)
+            ?.readFromTable(list)
     }
 
-    override fun mapName(name: String): TypeHandler<MAPHOLDER, Map<MAPKEY, MAPVALUE>> {
+    override fun mapName(name: String): TypeHandler<HOLDER, T> {
         return copy(name = nextName(name))
     }
 }

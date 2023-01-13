@@ -13,9 +13,19 @@ class ListTypeHandlerTest {
         ListTypeReader<ListHolder, Int> { listHolder -> listHolder.l }
     )
 
+    val listHolderHandler = objectType(
+        listOf(
+            memberValueGetter<ListHolder, Int>("i", false) { i },
+            collection("l", false)
+        )
+    )
+
     @Test
     fun test() {
-        assertEquals(Row("key_i INT NOT NULL", "index INT NOT NULL", "value_l INT NOT NULL"), listTypeHandler.toHeader())
+        assertEquals(
+            Row("key_i INT NOT NULL", "index INT NOT NULL", "value_l INT NOT NULL"),
+            listTypeHandler.toHeader()
+        )
         assertEquals(Row("key_i", "index", "value_l"), listTypeHandler.insertHead())
         assertEquals(
             listOf(Row("5", "0", "6"), Row("5", "1", "7")),
@@ -32,8 +42,20 @@ class ListTypeHandlerTest {
 
     @Test
     fun testToList() {
-        val list = listOf(DRow(listOf(5, 0, 6)), DRow(listOf(5, 1, 7)), DRow(listOf(5, 2, 8)))
+        val fromTable = listOf(
+            DRow(listOf(5, 0, 6)),
+            DRow(listOf(5, 1, 7)),
+            DRow(listOf(5, 2, 8))
+        )
         val expect = ListHolder(5, listOf(6, 7, 8))
-        assertEquals(expect.l, listTypeHandler.getList(list, DefaultTableCollector(emptyList())))
+        assertEquals(expect.l, listTypeHandler.getList(fromTable, DefaultTableCollector(emptyList(), emptyMap())))
     }
+
+    @Test
+    fun testToListHolder() {
+//        val read =
+//            listHolderHandler.getValue(DatabaseRunner(DefaultDatabaseReader(listOf(listOf(5))), 1)).rows.first().list
+//        listHolderHandler.toValue(read, DefaultTableCollector(emptyList(), emptyMap()))
+    }
+
 }

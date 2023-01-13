@@ -7,7 +7,7 @@ class ObjectTypeHandlerTest {
     @MoreKeys(2)
     class MyObject(val i: Int, val s: String, val x: Long)
 
-    val handler = ObjectTypeHandler<MyObject>(
+    val handler = objectType<MyObject>(
         listOf(
             memberValueGetter("i", false) { i },
             memberValueGetter("s", false) { s },
@@ -54,7 +54,7 @@ class ObjectTypeHandlerTest {
         val tableReader = DefaultTableReader(mapOf(listOf(5, "Hello") to expect))
         val got = refHandler.toValue(
             listOf(5, "Hello"), DefaultTableCollector(
-                listOf(MyObject::class pairedWith tableReader)
+                listOf(MyObject::class pairedWith tableReader), emptyMap()
             )
         )
         assertEquals(expect, got)
@@ -81,7 +81,7 @@ class TestComplexObjectType {
 
     @Test
     fun testObjectType() {
-        val handler = ObjectTypeHandler(complexObjectTypeHandler)
+        val handler = objectType(complexObjectTypeHandler)
         assertEquals(
             Row("m_i INT NOT NULL", "m_s TEXT NOT NULL", "x INT NOT NULL", "s TEXT NOT NULL"),
             handler.toHeader()
@@ -109,7 +109,7 @@ class TestComplexObjectType {
 
     @Test
     fun testDatabaseRead() {
-        val handler = ObjectTypeHandler(complexObjectTypeHandler)
+        val handler = objectType(complexObjectTypeHandler)
         val toRead = listOf(5, "Hello", 1, "World")
         val got = handler.getValue(DatabaseRunner(toRead))
         assertEquals(toRead, got.list)

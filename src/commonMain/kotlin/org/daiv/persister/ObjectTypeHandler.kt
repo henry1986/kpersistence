@@ -34,26 +34,34 @@ interface ListHandler<T : Any> : ValueInserter<T>, ReadFromDB, HeaderBuilder<Typ
     }
 }
 
+inline fun <reified T : Any> objectType(nativeTypes: List<TypeHandler<T, *>>) = ObjectTypeHandler(nativeTypes, T::class)
+interface Classable<T:Any>{
+    val clazz: KClass<T>
+}
+interface ToValueImplemenation<T:Any>:ToValueable<T>, Classable<T>{
+    override fun toValue(list: List<Any?>, tableCollector: TableCollector): T? {
+        return tableCollector.getTableReader(clazz)?.readFromTable(list)
+    }
+}
+
 data class ObjectTypeHandler<T : Any>(
-    override val nativeTypes: List<TypeHandler<T, *>>
-) : ValueInserter<T>, InsertHeadable, Headerable, ListHandler<T>
+    override val nativeTypes: List<TypeHandler<T, *>>,
+    override val clazz: KClass<T>,
+) : ValueInserter<T>, InsertHeadable, Headerable, ListHandler<T>, ToValueImplemenation<T> {
+}
 
 data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
     override val name: String,
     override val isNullable: Boolean,
-    val clazz: KClass<T>,
+    override val clazz: KClass<T>,
     val moreKeys: MoreKeysData,
     val _nativeTypes: List<TypeHandler<T, *>>,
     val getValue: GetValue<HIGHER, T>
-) : TypeHandler<HIGHER, T>, Nameable, ListHandler<T> {
+) : TypeHandler<HIGHER, T>, Nameable, ListHandler<T>, ToValueImplemenation<T> {
 
     override val nativeTypes = _nativeTypes.take(moreKeys.amount).map { it.mapName(name) }
 
     override val numberOfColumns: Int = nativeTypes.sumOf { it.numberOfColumns }
-
-    override fun toValue(list: List<Any?>, tableCollector: TableCollector): T? {
-        return tableCollector.getTableReader(clazz)?.readFromTable(list)
-    }
 
     override fun mapName(name: String): ObjectTypeRefHandler<HIGHER, T> {
         return copy(name = "${name}_${this.name}")

@@ -29,8 +29,10 @@ data class DefaultValueGetter<HIGHERCLASS : Any, LOWERTYPE : Any>(val member: KP
         return x
     }
 
-    override val clazz: KClassifier?
-        get() = member.returnType.classifier
+    override val holderClass: KClass<HIGHERCLASS>
+        get() = member.returnType.classifier as KClass<HIGHERCLASS>
+    override val memberClass: KClass<LOWERTYPE>
+        get() = member.returnType.classifier as KClass<LOWERTYPE>
     override val name: String
         get() = member.name
     override val isMarkedNullable: Boolean

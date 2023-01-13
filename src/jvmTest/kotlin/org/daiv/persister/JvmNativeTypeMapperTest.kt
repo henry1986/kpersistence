@@ -11,12 +11,12 @@ class JvmNativeTypeMapperTest<T : Any> {
     data class IntHolder(val i: Int)
     data class ComplexHolder(val ih: IntHolder, val i: Int)
 
-    val intHolderGetter = DefaultValueGetter(IntHolder::class.declaredMemberProperties.first())
+    val intHolderGetter = DefaultValueGetter(IntHolder::class.declaredMemberProperties.first() as KProperty1<IntHolder, Int?>)
 
     @Test
     fun test() {
         val getter = intHolderGetter
-        assertEquals(Int::class, getter.clazz)
+        assertEquals(Int::class, getter.memberClass)
         assertEquals("i", getter.name)
         assertEquals(5, getter.get(IntHolder(5)))
         assertFalse(getter.isMarkedNullable)
@@ -24,11 +24,11 @@ class JvmNativeTypeMapperTest<T : Any> {
 
     @Test
     fun testComplex() {
-        val member: KProperty1<ComplexHolder, *> = ComplexHolder::class.memberInConstructorOrder().first()
+        val member: KProperty1<ComplexHolder, IntHolder> = ComplexHolder::class.memberInConstructorOrder().first() as KProperty1<ComplexHolder, IntHolder>
         val getter = DefaultValueGetter(member)
         assertEquals("ih", getter.name)
         assertEquals(IntHolder::class, member.returnType.classifier)
-        assertEquals(IntHolder::class, getter.clazz)
+        assertEquals(IntHolder::class, getter.memberClass)
         assertEquals(IntHolder(5), getter.get(ComplexHolder(IntHolder(5), 6)))
         assertEquals<List<MemberValueGetter<*,*>>>(listOf(intHolderGetter), getter.getLowerMembers())
         assertFalse(getter.isMarkedNullable)
