@@ -1,8 +1,9 @@
 package org.daiv.persister
 
-interface ListHandler<T : Any> : InsertHeadable, ValueInserter<T>, Headerable, ReadFromDB {
-    val nativeTypes: List<TypeHandler<T, *, *>>
+import kotlin.reflect.KClass
 
+interface HeaderBuilder<T> : InsertHeadable, Headerable where T : Headerable, T : InsertHeadable {
+    val nativeTypes: List<T>
     override fun insertHead(): String {
         return nativeTypes.joinToString(", ") { it.insertHead() }
     }
@@ -10,6 +11,10 @@ interface ListHandler<T : Any> : InsertHeadable, ValueInserter<T>, Headerable, R
     override fun toHeader(): String {
         return nativeTypes.joinToString(", ") { it.toHeader() }
     }
+}
+
+interface ListHandler<T : Any> : ValueInserter<T>, ReadFromDB, HeaderBuilder<TypeHandler<T, *, *>> {
+    override val nativeTypes: List<TypeHandler<T, *, *>>
 
     override fun insertValue(t: T?): Row {
         return nativeTypes.fold(Row()) { r1, r2 -> r1 + r2.toInsert(t) }
@@ -36,12 +41,19 @@ data class ObjectTypeHandler<T : Any>(
 data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
     override val name: String,
     override val isNullable: Boolean,
+    val clazz: KClass<T>,
     val moreKeys: MoreKeysData,
     val _nativeTypes: List<TypeHandler<T, *, *>>,
     val getValue: GetValue<HIGHER, T>
 ) : TypeHandler<HIGHER, T, ObjectTypeRefHandler<HIGHER, T>>, Nameable, ListHandler<T> {
 
     override val nativeTypes = _nativeTypes.take(moreKeys.amount).map { it.map(name) }
+
+    override val numberOfColumns: Int = nativeTypes.sumOf { it.numberOfColumns }
+
+    override fun toValue(list: List<Any?>, tableCollector: TableCollector): T? {
+        return tableCollector.getTableReader(clazz)?.readFromTable(list)
+    }
 
     override fun mapName(name: String): ObjectTypeRefHandler<HIGHER, T> {
         return copy(name = "${name}_${this.name}")

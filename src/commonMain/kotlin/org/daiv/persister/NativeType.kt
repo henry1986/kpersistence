@@ -1,5 +1,7 @@
 package org.daiv.persister
 
+import kotlin.reflect.KClass
+
 interface TypeNameable {
     val typeName: String
 }
@@ -32,10 +34,20 @@ interface DatabaseReaderValueGetter {
     }
 }
 
-interface MapValue<T> : ValueInserter<T>, DatabaseReaderValueGetter
-class DefaultValueMapper<LOWERTYPE>() : MapValue<LOWERTYPE> {
+
+interface ToValueable<T> {
+    fun toValue(list: List<Any?>, tableCollector: TableCollector): T?
+}
+
+interface MapValue<T> : ValueInserter<T>, DatabaseReaderValueGetter, ToValueable<T>
+
+class DefaultValueMapper<LOWERTYPE> : MapValue<LOWERTYPE> {
     override fun insertValue(t: LOWERTYPE?): Row {
         return Row(t.toString())
+    }
+
+    override fun toValue(list: List<Any?>, tableCollector: TableCollector): LOWERTYPE {
+        return list.first() as LOWERTYPE
     }
 
     override fun equals(other: Any?): Boolean {
@@ -163,7 +175,7 @@ interface NativeHeader : TypeNameable, Nameable, NullableElement, Headerable, In
 }
 
 interface TypeHandler<HIGHER : Any, T, TYPEHANDLER : TypeHandler<HIGHER, T, TYPEHANDLER>> :
-    ColTypeHandler<HIGHER, T, TYPEHANDLER>, ValueInserterMapper<HIGHER, T> {
+    ColTypeHandler<T, TYPEHANDLER>, ValueInserterMapper<HIGHER, T> {
     override fun map(name: String): TypeHandler<HIGHER, *, *> {
         return mapName(name)
     }
@@ -176,19 +188,18 @@ interface NameBuilder : Nameable {
     }
 }
 
-interface ColTypeHandler<HIGHER : Any, T, TYPEHANDLER : ColTypeHandler<HIGHER, T, TYPEHANDLER>> : InsertHeadable,
-    NullableElement, Headerable, ReadFromDB, ValueInserter<T>, NameBuilder {
+interface Columnable {
+    /**
+     * describes the number of columns of this type
+     */
+    val numberOfColumns: Int
+}
+
+interface ColTypeHandler<T, TYPEHANDLER : ColTypeHandler<T, TYPEHANDLER>> : InsertHeadable,
+    NullableElement, Headerable, ReadFromDB, ValueInserter<T>, NameBuilder, Columnable, ToValueable<T> {
     fun mapName(name: String): TYPEHANDLER
-    fun map(name: String): ColTypeHandler<HIGHER, *, *> {
+    fun map(name: String): ColTypeHandler<*, *> {
         return mapName(name)
     }
 }
 
-
-data class DatabaseRunner(val databaseReader: DatabaseReader, val count: Int, val list: List<Any?>) {
-    constructor(list: List<Any?>) : this(DefaultDatabaseReader.simple(list), 1, emptyList())
-
-    fun next(): Pair<DatabaseRunner, Boolean> {
-        return copy(count = 1) to databaseReader.next()
-    }
-}

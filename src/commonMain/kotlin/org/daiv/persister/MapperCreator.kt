@@ -1,5 +1,6 @@
 package org.daiv.persister
 
+import kotlin.reflect.KClass
 import kotlin.reflect.KClassifier
 
 
@@ -81,7 +82,7 @@ object ObjectTypeMapperCreator : TypeHandlerFactory {
 
     override fun <HIGHERCLASS : Any, LOWERTYPE : Any> create(member: MemberValueGetter<HIGHERCLASS, LOWERTYPE>): ObjectTypeRefHandler<HIGHERCLASS, LOWERTYPE> {
         val got: List<TypeHandler<LOWERTYPE, *, *>> = member.getLowerMembers().map { it.create() }
-        return ObjectTypeRefHandler(member.name, member.isMarkedNullable, member.moreKeys, got, member)
+        return ObjectTypeRefHandler(member.name, member.isMarkedNullable, member.clazz as KClass<LOWERTYPE>,member.moreKeys, got, member)
     }
 }
 

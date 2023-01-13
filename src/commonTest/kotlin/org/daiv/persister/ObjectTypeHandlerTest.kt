@@ -7,15 +7,25 @@ class ObjectTypeHandlerTest {
     @MoreKeys(2)
     class MyObject(val i: Int, val s: String, val x: Long)
 
+    val handler = ObjectTypeHandler<MyObject>(
+        listOf(
+            memberValueGetter("i", false) { i },
+            memberValueGetter("s", false) { s },
+            memberValueGetter("x", false) { x },
+        )
+    )
+    val refHandler = memberValueGetter<Any, MyObject>(
+        "m", false, MoreKeysData(2), listOf(
+            memberValueGetterCreator("i", false) { i },
+            memberValueGetterCreator("s", false) { s },
+            memberValueGetterCreator("x", false) { x },
+        )
+    ) {
+        throw RuntimeException("test should not use getValue")
+    }
+
     @Test
     fun test() {
-        val handler = ObjectTypeHandler<MyObject>(
-            listOf(
-                memberValueGetter("i", false) { i },
-                memberValueGetter("s", false) { s },
-                memberValueGetter("x", false) { x },
-            )
-        )
         assertEquals(
             "i INT NOT NULL, s TEXT NOT NULL, x LONG NOT NULL", handler.toHeader()
         )
@@ -26,32 +36,28 @@ class ObjectTypeHandlerTest {
 
     @Test
     fun testRefHandler() {
-        val handler = memberValueGetter<Any, MyObject>(
-            "m", false, MoreKeysData(2), listOf(
-                memberValueGetterCreator("i", false) { i },
-                memberValueGetterCreator("s", false) { s },
-                memberValueGetterCreator("x", false) { x },
-            )
-        ) {
-            throw RuntimeException("test should not use getValue")
-        }
-        assertEquals("m_i INT NOT NULL, m_s TEXT NOT NULL", handler.toHeader())
-        assertEquals("m_i, m_s", handler.insertHead())
-        assertEquals(Row("5", "\"Hello\""), handler.insertValue(MyObject(5, "Hello", 90)))
+        assertEquals("m_i INT NOT NULL, m_s TEXT NOT NULL", refHandler.toHeader())
+        assertEquals("m_i, m_s", refHandler.insertHead())
+        assertEquals(Row("5", "\"Hello\""), refHandler.insertValue(MyObject(5, "Hello", 90)))
     }
 
     @Test
     fun testDatabaseRead() {
-        val handler = ObjectTypeHandler<MyObject>(
-            listOf(
-                memberValueGetter("i", false) { i },
-                memberValueGetter("s", false) { s },
-                memberValueGetter("x", false) { x },
-            )
-        )
         val toRead = listOf(5, "Hello", 90L)
         val got = handler.getValue(DatabaseRunner(toRead))
         assertEquals(toRead, got.list)
+    }
+
+    @Test
+    fun testToValue() {
+        val expect = MyObject(5, "Hello", 9)
+        val tableReader = DefaultTableReader(mapOf(listOf(5, "Hello") to expect))
+        val got = refHandler.toValue(
+            listOf(5, "Hello"), DefaultTableCollector(
+                listOf(MyObject::class pairedWith tableReader)
+            )
+        )
+        assertEquals(expect, got)
     }
 }
 
@@ -105,4 +111,16 @@ class TestComplexObjectType {
         val got = handler.getValue(DatabaseRunner(toRead))
         assertEquals(toRead, got.list)
     }
+
+//    @Test
+//    fun testToValue() {
+//        val expect = ObjectTypeHandlerTest.MyObject(5, "Hello", 9)
+//        val tableReader = DefaultTableReader(mapOf(listOf(5, "Hello") to expect))
+//        val got = refHandler.toValue(
+//            listOf(5, "Hello"), DefaultTableCollector(
+//                listOf(ObjectTypeHandlerTest.MyObject::class pairedWith tableReader)
+//            )
+//        )
+//        assertEquals(expect, got)
+//    }
 }
