@@ -13,8 +13,8 @@ interface HeaderBuilder<T> : InsertHeadable, Headerable where T : Headerable, T 
     }
 }
 
-interface ListHandler<T : Any> : ValueInserter<T>, ReadFromDB, HeaderBuilder<TypeHandler<T, *, *>> {
-    override val nativeTypes: List<TypeHandler<T, *, *>>
+interface ListHandler<T : Any> : ValueInserter<T>, ReadFromDB, HeaderBuilder<TypeHandler<T, *>> {
+    override val nativeTypes: List<TypeHandler<T, *>>
 
     override fun insertValue(t: T?): Row {
         return nativeTypes.fold(Row()) { r1, r2 -> r1 + r2.toInsert(t) }
@@ -35,7 +35,7 @@ interface ListHandler<T : Any> : ValueInserter<T>, ReadFromDB, HeaderBuilder<Typ
 }
 
 data class ObjectTypeHandler<T : Any>(
-    override val nativeTypes: List<TypeHandler<T, *, *>>
+    override val nativeTypes: List<TypeHandler<T, *>>
 ) : ValueInserter<T>, InsertHeadable, Headerable, ListHandler<T>
 
 data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
@@ -43,11 +43,11 @@ data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
     override val isNullable: Boolean,
     val clazz: KClass<T>,
     val moreKeys: MoreKeysData,
-    val _nativeTypes: List<TypeHandler<T, *, *>>,
+    val _nativeTypes: List<TypeHandler<T, *>>,
     val getValue: GetValue<HIGHER, T>
-) : TypeHandler<HIGHER, T, ObjectTypeRefHandler<HIGHER, T>>, Nameable, ListHandler<T> {
+) : TypeHandler<HIGHER, T>, Nameable, ListHandler<T> {
 
-    override val nativeTypes = _nativeTypes.take(moreKeys.amount).map { it.map(name) }
+    override val nativeTypes = _nativeTypes.take(moreKeys.amount).map { it.mapName(name) }
 
     override val numberOfColumns: Int = nativeTypes.sumOf { it.numberOfColumns }
 

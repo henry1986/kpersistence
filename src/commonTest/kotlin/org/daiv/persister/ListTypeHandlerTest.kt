@@ -21,7 +21,7 @@ class ListTypeHandlerTest {
             listOf(Row("5", "0", "6"), Row("5", "1", "7")),
             listTypeHandler.insertValue(ListHolder(5, listOf(6, 7)))
         )
-        val got = listTypeHandler.getValue(
+        val got: List<DRow> = listTypeHandler.getValue(
             DatabaseRunner(
                 DefaultDatabaseReader(listOf(listOf(5, 0, 6), listOf(5, 1, 7), listOf(5, 2, 8))),
                 1

@@ -32,7 +32,7 @@ interface Member {
 interface MemberValueGetter<HIGHERCLASS : Any, LOWERTYPE : Any> : Member, GetValue<HIGHERCLASS, LOWERTYPE> {
     fun getLowerMembers(): List<MemberValueGetter<LOWERTYPE, *>>
 
-    fun create(): TypeHandler<HIGHERCLASS, LOWERTYPE, *> {
+    fun create(): TypeHandler<HIGHERCLASS, LOWERTYPE> {
         return if (isNative())
             NativeTypeMapperCreator.create(this)
         else
@@ -75,13 +75,13 @@ class DefaultMemberValueGetter<HIGHERCLASS : Any, LOWERTYPE : Any>(
 }
 
 interface TypeHandlerFactory {
-    fun <HIGHERCLASS : Any, LOWERTYPE : Any> create(member: MemberValueGetter<HIGHERCLASS, LOWERTYPE>): TypeHandler<HIGHERCLASS, LOWERTYPE, *>
+    fun <HIGHERCLASS : Any, LOWERTYPE : Any> create(member: MemberValueGetter<HIGHERCLASS, LOWERTYPE>): TypeHandler<HIGHERCLASS, LOWERTYPE>
 }
 
 object ObjectTypeMapperCreator : TypeHandlerFactory {
 
     override fun <HIGHERCLASS : Any, LOWERTYPE : Any> create(member: MemberValueGetter<HIGHERCLASS, LOWERTYPE>): ObjectTypeRefHandler<HIGHERCLASS, LOWERTYPE> {
-        val got: List<TypeHandler<LOWERTYPE, *, *>> = member.getLowerMembers().map { it.create() }
+        val got: List<TypeHandler<LOWERTYPE, *>> = member.getLowerMembers().map { it.create() }
         return ObjectTypeRefHandler(member.name, member.isMarkedNullable, member.clazz as KClass<LOWERTYPE>,member.moreKeys, got, member)
     }
 }

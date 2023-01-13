@@ -24,7 +24,9 @@ interface Headerable {
 
 
 enum class NativeType(override val typeName: String) : TypeNameable {
-    INT("INT"), STRING("TEXT"), LONG("LONG"), BOOLEAN("INT"), DOUBLE("REAL"), ENUM("STRING")
+    INT("INT"), STRING("TEXT"), LONG("LONG"), BOOLEAN("INT"), DOUBLE("REAL"), ENUM("STRING"),
+    
+    MAP("MAP"), LIST("LIST"), SET("SET")
 }
 
 
@@ -174,12 +176,8 @@ interface NativeHeader : TypeNameable, Nameable, NullableElement, Headerable, In
     }
 }
 
-interface TypeHandler<HIGHER : Any, T, TYPEHANDLER : TypeHandler<HIGHER, T, TYPEHANDLER>> :
-    ColTypeHandler<T, TYPEHANDLER>, ValueInserterMapper<HIGHER, T> {
-    override fun map(name: String): TypeHandler<HIGHER, *, *> {
-        return mapName(name)
-    }
-
+interface TypeHandler<HIGHER : Any, T> : ColTypeHandler<T>, ValueInserterMapper<HIGHER, T> {
+    override fun mapName(name: String): TypeHandler<HIGHER, T>
 }
 
 interface NameBuilder : Nameable {
@@ -195,11 +193,8 @@ interface Columnable {
     val numberOfColumns: Int
 }
 
-interface ColTypeHandler<T, TYPEHANDLER : ColTypeHandler<T, TYPEHANDLER>> : InsertHeadable,
+interface ColTypeHandler<T> : InsertHeadable,
     NullableElement, Headerable, ReadFromDB, ValueInserter<T>, NameBuilder, Columnable, ToValueable<T> {
-    fun mapName(name: String): TYPEHANDLER
-    fun map(name: String): ColTypeHandler<*, *> {
-        return mapName(name)
-    }
+    fun mapName(name: String): ColTypeHandler<T>
 }
 

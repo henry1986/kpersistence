@@ -23,7 +23,7 @@ data class ListNativeTypeHandler<T> private constructor(
     override val name: String,
     override val isNullable: Boolean,
     private val mapValue: MapValue<T>,
-) : ColTypeHandler<T, ListNativeTypeHandler<T>>, TypeNameable by type, NativeHeader,
+) : ColTypeHandler<T>, TypeNameable by type, NativeHeader,
     ValueInserter<T> by mapValue, ToValueable<T> by mapValue, GetValueFromDB<T>, NativeTypeColumn {
     constructor(
         type: NativeType,
@@ -44,7 +44,7 @@ data class NativeTypeHandler<HIGHER : Any, T> private constructor(
     override val isNullable: Boolean,
     val getValue: GetValue<HIGHER, T>,
     val mapValue: MapValue<T>,
-) : TypeHandler<HIGHER, T, NativeTypeHandler<HIGHER, T>>, TypeNameable by type, NativeHeader,
+) : TypeHandler<HIGHER, T>, TypeNameable by type, NativeHeader,
     ValueInserter<T> by mapValue, ToValueable<T> by mapValue, ValueInserterWithGetter<HIGHER, T>,
     GetValue<HIGHER, T> by getValue,
     GetValueFromDB<T>, NativeTypeColumn {
