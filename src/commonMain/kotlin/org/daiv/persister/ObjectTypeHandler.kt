@@ -3,7 +3,7 @@ package org.daiv.persister
 import kotlin.reflect.KClass
 
 
-interface FoldList<T>{
+interface FoldList<T> {
     val nativeTypes: List<T>
 
     fun foldList(func: T.() -> Row): Row {
@@ -43,16 +43,36 @@ interface MainObjectHandler<T : Any> : ReadFromDB, HeaderBuilder<TypeHandler<T, 
     }
 }
 
-inline fun <reified T : Any> objectType(nativeTypes: List<TypeHandler<T, *>>) = ObjectTypeHandler(nativeTypes, T::class)
+inline fun <reified T : Any> objectType(nativeTypes: List<TypeHandler<T, *>>, valueFactory: ValueFactory<T>) =
+    ObjectTypeHandler(nativeTypes, valueFactory)
+
 interface Classable<T : Any> {
     val clazz: KClass<T>
 }
 
 data class ObjectTypeHandler<T : Any>(
     override val nativeTypes: List<TypeHandler<T, *>>,
-    val clazz: KClass<T>,
-) : ValueInserter<T>, InsertHeadable, Headerable, MainObjectHandler<T> {
+    val valueFactory: ValueFactory<T>,
+) : ValueInserter<T>, InsertHeadable, Headerable, MainObjectHandler<T>, ValueFactory<T> by valueFactory {
 
+    fun receiveValuesForConstructor(row: DRow, tableCollector: TableCollector, i: Int, ret: List<Any?>): List<Any?> {
+        if (i < nativeTypes.size) {
+            val got = nativeTypes[i]
+            val list = row.take(got.numberOfColumns)
+            val value = got.toValue(list, tableCollector)
+            return receiveValuesForConstructor(row - got.numberOfColumns, tableCollector, i + 1, ret + value)
+        }
+        return ret
+    }
+
+    /**
+     * select * from X where i = 5 AND s = "Hello";
+     * [5], ["Hello"], [9L]
+     */
+    fun toValue(row: DRow, tableCollector: TableCollector): T {
+        val list = receiveValuesForConstructor(row, tableCollector, 0, emptyList())
+        return createValue(list)
+    }
 }
 
 data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(

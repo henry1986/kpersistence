@@ -23,7 +23,7 @@ data class DefaultValueGetter<HIGHERCLASS : Any, LOWERTYPE : Any>(
         return member.get(higher)
     }
 
-    override fun createValue(vararg args: Any?): HIGHERCLASS {
+    override fun createValueArgs(vararg args: Any?): HIGHERCLASS {
         return primaryConstructor.call(args)
     }
 

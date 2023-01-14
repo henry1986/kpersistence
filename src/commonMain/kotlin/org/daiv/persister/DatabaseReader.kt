@@ -33,7 +33,17 @@ class DefaultDatabaseReader(val list: List<List<Any?>>) : DatabaseReader {
 }
 
 data class DRow(val list: List<Any?> = emptyList()) {
+    operator fun minus(i:Int):DRow{
+        return DRow(list.drop(i))
+    }
 
+    fun drop(i:Int):List<Any?>{
+        return list.drop(i)
+    }
+
+    fun take(i:Int):List<Any?>{
+        return list.take(i)
+    }
 }
 
 

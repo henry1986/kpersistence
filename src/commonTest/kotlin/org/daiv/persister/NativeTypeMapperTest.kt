@@ -13,10 +13,10 @@ class NativeTypeMapperTest<T : Any> {
         name: String,
         nativeType: NativeType,
         mapperClass: KClass<out MapValue<*>>,
-        noinline creation: (List<Any?>) -> HOLDER,
+        creation: ValueFactory<HOLDER>,
         noinline func: HOLDER.() -> T
     ) {
-        val member = memberValueGetterCreator(name, false, MoreKeysData(), emptyList(), creation = creation, func)
+        val member = memberValueGetterCreator(name, false, MoreKeysData(), emptyList(), valueFactory = creation, func)
         val n = NativeTypeMapperCreator.create(member)
         assertEquals(
             member.create(),

@@ -3,7 +3,7 @@ package org.daiv.persister
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
-val createMyObject: (List<Any?>) -> ObjectTypeHandlerTest.MyObject = {
+val myObjectValueFactory = ValueFactory {
     ObjectTypeHandlerTest.MyObject(
         it[0] as Int,
         it[1] as String,
@@ -11,7 +11,7 @@ val createMyObject: (List<Any?>) -> ObjectTypeHandlerTest.MyObject = {
     )
 }
 
-val createComplexObject: (List<Any?>) -> TestComplexObjectType.ComplexObject = {
+val createComplexObject = ValueFactory {
     TestComplexObjectType.ComplexObject(
         it[0] as ObjectTypeHandlerTest.MyObject,
         it[0] as Int,
@@ -24,19 +24,19 @@ class ObjectTypeHandlerTest {
     class MyObject(val i: Int, val s: String, val x: Long)
 
 
-    val handler = objectType<MyObject>(
+    val handler = objectType(
         listOf(
-            memberValueGetter("i", false, creation = createMyObject) { i },
-            memberValueGetter("s", false, creation = createMyObject) { s },
-            memberValueGetter("x", false, creation = createMyObject) { x },
-        )
+            memberValueGetter("i", false, valueFactory = myObjectValueFactory) { i },
+            memberValueGetter("s", false, valueFactory = myObjectValueFactory) { s },
+            memberValueGetter("x", false, valueFactory = myObjectValueFactory) { x },
+        ), myObjectValueFactory
     )
     val refHandler = memberValueGetter(
         "m", false, MoreKeysData(2), listOf(
-            memberValueGetterCreator("i", false, creation = createMyObject) { i },
-            memberValueGetterCreator("s", false, creation = createMyObject) { s },
-            memberValueGetterCreator("x", false, creation = createMyObject) { x },
-        ), creation = { Any() }
+            memberValueGetterCreator("i", false, valueFactory = myObjectValueFactory) { i },
+            memberValueGetterCreator("s", false, valueFactory = myObjectValueFactory) { s },
+            memberValueGetterCreator("x", false, valueFactory = myObjectValueFactory) { x },
+        ), valueFactory = { Any() }
     ) {
         throw RuntimeException("test should not use getValue")
     }
@@ -84,40 +84,51 @@ class TestComplexObjectType {
 
     private val myObjectHandler = memberValueGetterCreator(
         "m", false, MoreKeysData(2), listOf(
-            memberValueGetterCreator("i", false, creation = createMyObject) { i },
-            memberValueGetterCreator("s", false, creation = createMyObject) { s },
-            memberValueGetterCreator("x", false, creation = createMyObject) { x },
-        ), creation = createComplexObject
+            memberValueGetterCreator("i", false, valueFactory = myObjectValueFactory) { i },
+            memberValueGetterCreator("s", false, valueFactory = myObjectValueFactory) { s },
+            memberValueGetterCreator("x", false, valueFactory = myObjectValueFactory) { x },
+        ), valueFactory = createComplexObject
     ) { m }
     private val complexObjectMember = listOf(myObjectHandler) + listOf(
-        memberValueGetterCreator("x", false, creation = createComplexObject) { x },
-        memberValueGetterCreator("s", false, creation = createComplexObject) { s },
+        memberValueGetterCreator("x", false, valueFactory = createComplexObject) { x },
+        memberValueGetterCreator("s", false, valueFactory = createComplexObject) { s },
     )
 
-    private val complexObjectTypeHandler = complexObjectMember.map { it.create() }
+    private val complexObjectTypeHandlerList = complexObjectMember.map { it.create() }
+    val complexObjectTypeHandler = objectType(complexObjectTypeHandlerList) {
+        ComplexObject(
+            it[0] as ObjectTypeHandlerTest.MyObject, it[1] as Int,
+            it[2] as String
+        )
+    }
 
     @Test
     fun testObjectType() {
-        val handler = objectType(complexObjectTypeHandler)
         assertEquals(
             Row("m_i INT NOT NULL", "m_s TEXT NOT NULL", "x INT NOT NULL", "s TEXT NOT NULL"),
-            handler.toHeader()
+            complexObjectTypeHandler.toHeader()
         )
-        assertEquals(Row("m_i", "m_s", "x", "s"), handler.insertHead())
+        assertEquals(Row("m_i", "m_s", "x", "s"), complexObjectTypeHandler.insertHead())
         assertEquals(
             Row("5", "\"Hello\"", "1", "\"World\""),
-            handler.insertValue(ComplexObject(ObjectTypeHandlerTest.MyObject(5, "Hello", 95L), 1, "World"))
+            complexObjectTypeHandler.insertValue(
+                ComplexObject(
+                    ObjectTypeHandlerTest.MyObject(5, "Hello", 95L),
+                    1,
+                    "World"
+                )
+            )
         )
     }
 
     @Test
     fun testObjectTypeRef() {
-        val handler = memberValueGetterCreator<Any, ComplexObject>(
+        val handler = memberValueGetterCreator(
             "c",
             false,
             MoreKeysData(2),
             complexObjectMember,
-            creation = createComplexObject
+            valueFactory = { Any() }
         ) {
             throw RuntimeException()
         }.create()
@@ -132,9 +143,8 @@ class TestComplexObjectType {
 
     @Test
     fun testDatabaseRead() {
-        val handler = objectType(complexObjectTypeHandler)
         val toRead = listOf(5, "Hello", 1, "World")
-        val got = handler.getValue(DatabaseRunner(toRead))
+        val got = complexObjectTypeHandler.getValue(DatabaseRunner(toRead))
         assertEquals(toRead, got.list)
     }
 

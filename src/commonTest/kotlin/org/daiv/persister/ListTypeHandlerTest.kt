@@ -15,10 +15,10 @@ class ListTypeHandlerTest {
 
     val listHolderHandler = objectType(
         listOf(
-            memberValueGetter<ListHolder, Int>("i", false, creation = { ListHolder(it[0] as Int, it[1] as List<Int>) }) { i },
+            memberValueGetter("i", false, valueFactory = { ListHolder(it[0] as Int, it[1] as List<Int>) }) { i },
             collection("l", false)
         )
-    )
+    ) { ListHolder(it[0] as Int, it[1] as List<Int>) }
 
     @Test
     fun test() {
