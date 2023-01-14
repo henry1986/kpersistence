@@ -43,7 +43,11 @@ interface MainObjectHandler<T : Any> : ReadFromDB, HeaderBuilder<TypeHandler<T, 
     }
 }
 
-inline fun <reified T : Any> objectType(nativeTypes: List<TypeHandler<T, *>>, moreKeys: MoreKeysData, valueFactory: ValueFactory<T>) =
+inline fun <reified T : Any> objectType(
+    nativeTypes: List<TypeHandler<T, *>>,
+    moreKeys: MoreKeysData,
+    valueFactory: ValueFactory<T>
+) =
     ObjectTypeHandler(nativeTypes, moreKeys, valueFactory)
 
 interface Classable<T : Any> {
@@ -59,6 +63,8 @@ data class ObjectTypeHandler<T : Any>(
     private val keys = nativeTypes.take(moreKeys.amount)
     private val keyNumberOfColumns = keys.sumOf { it.numberOfColumns }
 
+    fun keyNames(): Row = keys.fold(Row()) { r1, r2 -> r1 + r2.insertHead() }
+
     fun receiveValuesForConstructor(
         row: DRow,
         tableCollector: TableCollector,
@@ -69,7 +75,13 @@ data class ObjectTypeHandler<T : Any>(
         if (i < nativeTypes.size) {
             val got = nativeTypes[i]
             val value = got.toValue(ColumnValues(keyColumnValues, row.take(got.numberOfColumns)), tableCollector)
-            return receiveValuesForConstructor(row - got.numberOfColumns, tableCollector, keyColumnValues, i + 1, ret + value)
+            return receiveValuesForConstructor(
+                row - got.numberOfColumns,
+                tableCollector,
+                keyColumnValues,
+                i + 1,
+                ret + value
+            )
         }
         return ret
     }

@@ -18,19 +18,18 @@ val createComplexObject = ValueFactory {
         it[1] as String,
     )
 }
+val myObjectTypeHandler = objectType(
+    listOf(
+        memberValueGetter("i", false, valueFactory = myObjectValueFactory) { i },
+        memberValueGetter("s", false, valueFactory = myObjectValueFactory) { s },
+        memberValueGetter("x", false, valueFactory = myObjectValueFactory) { x },
+    ), MoreKeysData(2), myObjectValueFactory
+)
 
 class ObjectTypeHandlerTest {
     @MoreKeys(2)
-    class MyObject(val i: Int, val s: String, val x: Long)
+    data class MyObject(val i: Int, val s: String, val x: Long)
 
-
-    val handler = objectType(
-        listOf(
-            memberValueGetter("i", false, valueFactory = myObjectValueFactory) { i },
-            memberValueGetter("s", false, valueFactory = myObjectValueFactory) { s },
-            memberValueGetter("x", false, valueFactory = myObjectValueFactory) { x },
-        ),MoreKeysData(2), myObjectValueFactory
-    )
     val refHandler = memberValueGetter(
         "m", false, MoreKeysData(2), listOf(
             memberValueGetterCreator("i", false, valueFactory = myObjectValueFactory) { i },
@@ -44,10 +43,10 @@ class ObjectTypeHandlerTest {
     @Test
     fun test() {
         assertEquals(
-            Row("i INT NOT NULL", "s TEXT NOT NULL", "x LONG NOT NULL"), handler.toHeader()
+            Row("i INT NOT NULL", "s TEXT NOT NULL", "x LONG NOT NULL"), myObjectTypeHandler.toHeader()
         )
-        assertEquals(Row("i", "s", "x"), handler.insertHead())
-        val insert = handler.insertValue(MyObject(5, "Hello", 90L))
+        assertEquals(Row("i", "s", "x"), myObjectTypeHandler.insertHead())
+        val insert = myObjectTypeHandler.insertValue(MyObject(5, "Hello", 90L))
         assertEquals(Row("5", "\"Hello\"", "90"), insert)
     }
 
@@ -61,7 +60,7 @@ class ObjectTypeHandlerTest {
     @Test
     fun testDatabaseRead() {
         val toRead = listOf(5, "Hello", 90L)
-        val got = handler.getValue(DatabaseRunner(toRead))
+        val got = myObjectTypeHandler.getValue(DatabaseRunner(toRead))
         assertEquals(toRead, got.list)
     }
 
@@ -70,7 +69,7 @@ class ObjectTypeHandlerTest {
         val expect = MyObject(5, "Hello", 9)
         val tableReader = DefaultTableReader(mapOf(listOf(5, "Hello") to expect))
         val got = refHandler.toValue(
-            ColumnValues(emptyList(),  listOf(5, "Hello")), DefaultTableCollector(
+            ColumnValues(emptyList(), listOf(5, "Hello")), DefaultTableCollector(
                 listOf(MyObject::class pairedWith tableReader), emptyMap()
             )
         )
@@ -82,14 +81,14 @@ class TestComplexObjectType {
     @MoreKeys(2)
     data class ComplexObject(val m: ObjectTypeHandlerTest.MyObject, val x: Int, val s: String)
 
-    private val myObjectHandler = memberValueGetterCreator(
+    private val myObjectDefaultMemberValueGetter = memberValueGetterCreator(
         "m", false, MoreKeysData(2), listOf(
             memberValueGetterCreator("i", false, valueFactory = myObjectValueFactory) { i },
             memberValueGetterCreator("s", false, valueFactory = myObjectValueFactory) { s },
             memberValueGetterCreator("x", false, valueFactory = myObjectValueFactory) { x },
         ), valueFactory = createComplexObject
     ) { m }
-    private val complexObjectMember = listOf(myObjectHandler) + listOf(
+    private val complexObjectMember = listOf(myObjectDefaultMemberValueGetter) + listOf(
         memberValueGetterCreator("x", false, valueFactory = createComplexObject) { x },
         memberValueGetterCreator("s", false, valueFactory = createComplexObject) { s },
     )
@@ -148,15 +147,21 @@ class TestComplexObjectType {
         assertEquals(toRead, got.list)
     }
 
-//    @Test
-//    fun testToValue() {
-//        val expect = ObjectTypeHandlerTest.MyObject(5, "Hello", 9)
-//        val tableReader = DefaultTableReader(mapOf(listOf(5, "Hello") to expect))
-//        val got = refHandler.toValue(
-//            listOf(5, "Hello"), DefaultTableCollector(
-//                listOf(ObjectTypeHandlerTest.MyObject::class pairedWith tableReader)
-//            )
-//        )
-//        assertEquals(expect, got)
-//    }
+    @Test
+    fun testKeyNames() {
+        assertEquals(Row("i", "s"), myObjectTypeHandler.keyNames())
+        assertEquals(Row("m_i", "m_s", "x"), complexObjectTypeHandler.keyNames())
+    }
+
+    @Test
+    fun testToValue() {
+        val expect = ObjectTypeHandlerTest.MyObject(5, "Hello", 9)
+        val tableReader = DefaultTableReader(mapOf(listOf(5, "Hello") to expect))
+        val got = myObjectTypeHandler.toValue(
+            DRow(listOf(5, "Hello", 9L)), DefaultTableCollector(
+                listOf(ObjectTypeHandlerTest.MyObject::class pairedWith tableReader), emptyMap()
+            )
+        )
+        assertEquals(expect, got)
+    }
 }

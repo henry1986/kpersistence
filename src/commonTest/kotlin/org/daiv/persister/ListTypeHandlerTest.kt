@@ -73,4 +73,5 @@ class ListTypeHandlerTest {
         )
         assertEquals(ListHolder(5, listOf(7, 8, 9)), v)
     }
+
 }
