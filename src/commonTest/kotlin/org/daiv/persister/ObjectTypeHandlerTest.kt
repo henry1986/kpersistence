@@ -29,7 +29,7 @@ class ObjectTypeHandlerTest {
             memberValueGetter("i", false, valueFactory = myObjectValueFactory) { i },
             memberValueGetter("s", false, valueFactory = myObjectValueFactory) { s },
             memberValueGetter("x", false, valueFactory = myObjectValueFactory) { x },
-        ), myObjectValueFactory
+        ),MoreKeysData(2), myObjectValueFactory
     )
     val refHandler = memberValueGetter(
         "m", false, MoreKeysData(2), listOf(
@@ -70,7 +70,7 @@ class ObjectTypeHandlerTest {
         val expect = MyObject(5, "Hello", 9)
         val tableReader = DefaultTableReader(mapOf(listOf(5, "Hello") to expect))
         val got = refHandler.toValue(
-            listOf(5, "Hello"), DefaultTableCollector(
+            ColumnValues(emptyList(),  listOf(5, "Hello")), DefaultTableCollector(
                 listOf(MyObject::class pairedWith tableReader), emptyMap()
             )
         )
@@ -95,7 +95,7 @@ class TestComplexObjectType {
     )
 
     private val complexObjectTypeHandlerList = complexObjectMember.map { it.create() }
-    val complexObjectTypeHandler = objectType(complexObjectTypeHandlerList) {
+    val complexObjectTypeHandler = objectType(complexObjectTypeHandlerList, MoreKeysData(2)) {
         ComplexObject(
             it[0] as ObjectTypeHandlerTest.MyObject, it[1] as Int,
             it[2] as String

@@ -85,13 +85,13 @@ interface ThreeColumnable<COLKEY, COLELEMENT> : CollectionValueGetIterator {
             val n = it.list.drop(primaryHandler.numberOfColumns)
             val keyKeys = n.take(secondColumnable.numberOfColumns)
             val valueKeys = n.takeLast(valueHandlerColumnable.numberOfColumns)
-            second.toValue(keyKeys, tableCollector) to valueHandler.toValue(valueKeys, tableCollector)
+            second.toValue(ColumnValues(n, keyKeys), tableCollector) to valueHandler.toValue(ColumnValues(n, valueKeys), tableCollector)
         }
     }
 }
 
 interface EmptyHeader<MAPHOLDER : Any, T> : Headerable, InsertHeadable, ReadFromDB, ValueInserter<T>,
-    ValueInserterMapper<MAPHOLDER> {
+                                            ValueInserterMapper<MAPHOLDER> {
     override fun insertHead(): Row {
         return Row()
     }
@@ -148,9 +148,9 @@ data class CollectionTypeHandlerRef<HOLDER : Any, T : Any>(
 
     override val numberOfColumns: Int = 0
 
-    override fun toValue(list: List<Any?>, tableCollector: TableCollector): T? {
+    override fun toValue(columnValues: ColumnValues, tableCollector: TableCollector): T? {
         return tableCollector.getCollectionTableReader<HOLDER, T>(clazz, name)
-            ?.readFromTable(list)
+            ?.readFromTable(columnValues.holderKeys)
     }
 
     override fun mapName(name: String): TypeHandler<HOLDER, T> {
@@ -198,7 +198,10 @@ data class SetTypeHandler<PRIMARYKEY, SETHOLDER : Any, SETELEMENT>(
 
     fun getSet(rows: List<DRow>, tableCollector: TableCollector): Set<SETELEMENT?> {
         return rows.map {
-            valueHandler.toValue(it.list.drop(primaryHandler.numberOfColumns), tableCollector)
+            valueHandler.toValue(
+                ColumnValues(it.list.take(primaryHandler.numberOfColumns), it.list.drop(primaryHandler.numberOfColumns)),
+                tableCollector
+            )
         }.toSet()
     }
 }

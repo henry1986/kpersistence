@@ -36,8 +36,10 @@ interface DatabaseReaderValueGetter {
     }
 }
 
+data class ColumnValues(val holderKeys:List<Any?>, val lowerValues:List<Any?>)
+
 interface ToValueable<T> {
-    fun toValue(list: List<Any?>, tableCollector: TableCollector): T?
+    fun toValue(columnValues: ColumnValues, tableCollector: TableCollector): T?
 }
 
 interface MapValue<T> : ValueInserter<T>, DatabaseReaderValueGetter, ToValueable<T>
@@ -47,8 +49,8 @@ class DefaultValueMapper<LOWERTYPE> : MapValue<LOWERTYPE> {
         return Row(t.toString())
     }
 
-    override fun toValue(list: List<Any?>, tableCollector: TableCollector): LOWERTYPE {
-        return list.first() as LOWERTYPE
+    override fun toValue(columnValues: ColumnValues, tableCollector: TableCollector): LOWERTYPE {
+        return columnValues.lowerValues.first() as LOWERTYPE
     }
 
     override fun equals(other: Any?): Boolean {

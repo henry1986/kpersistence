@@ -4,7 +4,7 @@ import kotlin.test.Test
 import kotlin.test.assertEquals
 
 class ListTypeHandlerTest {
-    class ListHolder(val i: Int, val l: List<Int>)
+    data class ListHolder(val i: Int, val l: List<Int>)
 
     val listTypeHandler = ListTypeHandler(
         ListNativeTypeHandler(NativeType.INT, "key_i", false),
@@ -17,8 +17,15 @@ class ListTypeHandlerTest {
         listOf(
             memberValueGetter("i", false, valueFactory = { ListHolder(it[0] as Int, it[1] as List<Int>) }) { i },
             collection("l", false)
-        )
-    ) { ListHolder(it[0] as Int, it[1] as List<Int>) }
+        ), MoreKeysData()
+    ) {
+        try {
+            ListHolder(it[0] as Int, it[1] as List<Int>)
+        } catch (t: Throwable) {
+            println("got ${it.asList()}")
+            throw t
+        }
+    }
 
     @Test
     fun test() {
@@ -53,17 +60,17 @@ class ListTypeHandlerTest {
 
     @Test
     fun testToListHolder() {
-//        val read =
-//            listHolderHandler.getValue(DatabaseRunner(DefaultDatabaseReader(listOf(listOf(5))), 1)).rows.first().list
-//        val v = listHolderHandler.toValue(
-//            read, DefaultTableCollector(
-//                emptyList(), mapOf(
-//                    (ListHolder::class to "l") to DefaultTableReader(
-//                        mapOf(listOf(5) to listOf(7, 8, 9))
-//                    )
-//                )
-//            )
-//        )
-//        assertEquals(ListHolder(5, listOf(7, 8, 9)), v)
+        val read =
+            listHolderHandler.getValue(DatabaseRunner(DefaultDatabaseReader(listOf(listOf(5))), 1)).rows.first()
+        val v = listHolderHandler.toValue(
+            read, DefaultTableCollector(
+                emptyList(), mapOf(
+                    (ListHolder::class to "l") to DefaultTableReader(
+                        mapOf(listOf(5) to listOf(7, 8, 9))
+                    )
+                )
+            )
+        )
+        assertEquals(ListHolder(5, listOf(7, 8, 9)), v)
     }
 }

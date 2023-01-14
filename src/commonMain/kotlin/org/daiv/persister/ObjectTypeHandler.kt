@@ -43,8 +43,8 @@ interface MainObjectHandler<T : Any> : ReadFromDB, HeaderBuilder<TypeHandler<T, 
     }
 }
 
-inline fun <reified T : Any> objectType(nativeTypes: List<TypeHandler<T, *>>, valueFactory: ValueFactory<T>) =
-    ObjectTypeHandler(nativeTypes, valueFactory)
+inline fun <reified T : Any> objectType(nativeTypes: List<TypeHandler<T, *>>, moreKeys: MoreKeysData, valueFactory: ValueFactory<T>) =
+    ObjectTypeHandler(nativeTypes, moreKeys, valueFactory)
 
 interface Classable<T : Any> {
     val clazz: KClass<T>
@@ -52,15 +52,24 @@ interface Classable<T : Any> {
 
 data class ObjectTypeHandler<T : Any>(
     override val nativeTypes: List<TypeHandler<T, *>>,
+    val moreKeys: MoreKeysData,
     val valueFactory: ValueFactory<T>,
 ) : ValueInserter<T>, InsertHeadable, Headerable, MainObjectHandler<T>, ValueFactory<T> by valueFactory {
 
-    fun receiveValuesForConstructor(row: DRow, tableCollector: TableCollector, i: Int, ret: List<Any?>): List<Any?> {
+    private val keys = nativeTypes.take(moreKeys.amount)
+    private val keyNumberOfColumns = keys.sumOf { it.numberOfColumns }
+
+    fun receiveValuesForConstructor(
+        row: DRow,
+        tableCollector: TableCollector,
+        keyColumnValues: List<Any?>,
+        i: Int,
+        ret: List<Any?>
+    ): List<Any?> {
         if (i < nativeTypes.size) {
             val got = nativeTypes[i]
-            val list = row.take(got.numberOfColumns)
-            val value = got.toValue(list, tableCollector)
-            return receiveValuesForConstructor(row - got.numberOfColumns, tableCollector, i + 1, ret + value)
+            val value = got.toValue(ColumnValues(keyColumnValues, row.take(got.numberOfColumns)), tableCollector)
+            return receiveValuesForConstructor(row - got.numberOfColumns, tableCollector, keyColumnValues, i + 1, ret + value)
         }
         return ret
     }
@@ -70,7 +79,7 @@ data class ObjectTypeHandler<T : Any>(
      * [5], ["Hello"], [9L]
      */
     fun toValue(row: DRow, tableCollector: TableCollector): T {
-        val list = receiveValuesForConstructor(row, tableCollector, 0, emptyList())
+        val list = receiveValuesForConstructor(row, tableCollector, row.list.take(keyNumberOfColumns), 0, emptyList())
         return createValue(list)
     }
 }
@@ -86,8 +95,8 @@ data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
 
     override val nativeTypes = _nativeTypes.take(moreKeys.amount).map { it.mapName(name) }
 
-    override fun toValue(list: List<Any?>, tableCollector: TableCollector): T? {
-        return tableCollector.getTableReader(clazz)?.readFromTable(list)
+    override fun toValue(columnValues: ColumnValues, tableCollector: TableCollector): T? {
+        return tableCollector.getTableReader(clazz)?.readFromTable(columnValues.lowerValues)
     }
 
     override val numberOfColumns: Int = nativeTypes.sumOf { it.numberOfColumns }
