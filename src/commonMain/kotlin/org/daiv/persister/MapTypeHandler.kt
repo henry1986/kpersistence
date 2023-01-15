@@ -46,6 +46,8 @@ data class Row private constructor(val list: List<String>) {
     operator fun plus(row: Row): Row {
         return Row(list + row.list)
     }
+
+    fun toCommaSeparation() = list.joinToString(", ")
 }
 
 interface CollectionValueGetIterator {
@@ -85,13 +87,16 @@ interface ThreeColumnable<COLKEY, COLELEMENT> : CollectionValueGetIterator {
             val n = it.list.drop(primaryHandler.numberOfColumns)
             val keyKeys = n.take(secondColumnable.numberOfColumns)
             val valueKeys = n.takeLast(valueHandlerColumnable.numberOfColumns)
-            second.toValue(ColumnValues(n, keyKeys), tableCollector) to valueHandler.toValue(ColumnValues(n, valueKeys), tableCollector)
+            second.toValue(ColumnValues(n, keyKeys), tableCollector) to valueHandler.toValue(
+                ColumnValues(n, valueKeys),
+                tableCollector
+            )
         }
     }
 }
 
 interface EmptyHeader<MAPHOLDER : Any, T> : Headerable, InsertHeadable, ReadFromDB, ValueInserter<T>,
-                                            ValueInserterMapper<MAPHOLDER> {
+    ValueInserterMapper<MAPHOLDER> {
     override fun insertHead(): Row {
         return Row()
     }
@@ -199,7 +204,10 @@ data class SetTypeHandler<PRIMARYKEY, SETHOLDER : Any, SETELEMENT>(
     fun getSet(rows: List<DRow>, tableCollector: TableCollector): Set<SETELEMENT?> {
         return rows.map {
             valueHandler.toValue(
-                ColumnValues(it.list.take(primaryHandler.numberOfColumns), it.list.drop(primaryHandler.numberOfColumns)),
+                ColumnValues(
+                    it.list.take(primaryHandler.numberOfColumns),
+                    it.list.drop(primaryHandler.numberOfColumns)
+                ),
                 tableCollector
             )
         }.toSet()
