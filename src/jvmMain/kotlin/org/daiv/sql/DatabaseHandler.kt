@@ -60,21 +60,6 @@ class ReadWriter(val databaseInterface: DatabaseInterface){
         }
     }
 
-//    internal fun read(query: String): ResultSet {
-//        try {
-//
-//            logger.trace(dbMarkerRead, query)
-//            val statement = databaseInterface.statement
-//            logger.debug(query)
-//            val result = statement.executeQuery(query)
-////            result.close()
-////            statement.close()
-//            return result
-//        } catch (e: SQLException) {
-//            throw RuntimeException("query: $query", e)
-//        }
-//    }
-
     internal fun write(query: String) {
         try {
             if (query.startsWith("CREATE")) {

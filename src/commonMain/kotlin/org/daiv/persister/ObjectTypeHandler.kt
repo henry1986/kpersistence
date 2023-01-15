@@ -47,8 +47,7 @@ inline fun <reified T : Any> objectType(
     nativeTypes: List<TypeHandler<T, *>>,
     moreKeys: MoreKeysData,
     valueFactory: ValueFactory<T>
-) =
-    ObjectTypeHandler(nativeTypes, moreKeys, valueFactory)
+) = ObjectTypeHandler(nativeTypes, moreKeys, valueFactory)
 
 interface Classable<T : Any> {
     val clazz: KClass<T>
