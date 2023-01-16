@@ -1,5 +1,9 @@
 package org.daiv.persister
 
+import org.daiv.persister.sql.command.CommandReceiver
+import org.daiv.persister.sql.command.DefaultTable
+import org.daiv.persister.sql.command.Table
+import org.daiv.persister.sql.command.table
 import kotlin.reflect.KClass
 import kotlin.reflect.KFunction
 import kotlin.reflect.KProperty1
@@ -10,6 +14,25 @@ import kotlin.reflect.full.primaryConstructor
 
 fun <T : Any> KClass<T>.memberInConstructorOrder(): List<KProperty1<T, *>> {
     return primaryConstructor!!.parameters.map { p -> declaredMemberProperties.find { it.name == p.name }!! }
+}
+
+fun <T : Any> KClass<T>.getPrimary() =
+    primaryConstructor ?: throw RuntimeException("no primary constructor for class $qualifiedName")
+
+inline fun <reified T : Any> CommandReceiver.table(tableName: String = T::class.simpleName!!): Table<T> {
+    val clazz = T::class
+    return table(
+        tableName,
+        clazz.findAnnotation<MoreKeys>().default().toMoreKeysData(),
+        getMembers(clazz)
+    ) { clazz.getPrimary().call(it) }
+}
+
+fun <LOWERTYPE : Any> getMembers(clazz: KClass<LOWERTYPE>): List<MemberValueGetter<LOWERTYPE, *>> {
+    val x: List<DefaultValueGetter<LOWERTYPE, Any>> = clazz.memberInConstructorOrder().map {
+        DefaultValueGetter(it, clazz.getPrimary())
+    }
+    return x
 }
 
 data class DefaultValueGetter<HIGHERCLASS : Any, LOWERTYPE : Any>(
@@ -27,17 +50,8 @@ data class DefaultValueGetter<HIGHERCLASS : Any, LOWERTYPE : Any>(
         return primaryConstructor.call(args)
     }
 
-    override fun getLowerMembers(): List<MemberValueGetter<LOWERTYPE, *>> {
-        val clazz = member.returnType.classifier as KClass<LOWERTYPE>
-        val x: List<DefaultValueGetter<LOWERTYPE, Any>> = clazz.memberInConstructorOrder().map {
-            DefaultValueGetter(
-                it,
-                clazz.primaryConstructor
-                    ?: throw RuntimeException("no primary constructor for class ${clazz.qualifiedName}")
-            )
-        }
-        return x
-    }
+    override val members: List<MemberValueGetter<LOWERTYPE, out Any>> =
+        getMembers(member.returnType.classifier as KClass<LOWERTYPE>)
 
     override val holderClass: KClass<HIGHERCLASS>
         get() = member.returnType.classifier as KClass<HIGHERCLASS>

@@ -11,4 +11,4 @@ internal fun <T : Any> T?.default(clazz: KClass<T>, vararg args: Any): T {
     return this ?: clazz.createObject(*args)
 }
 
-internal fun MoreKeys?.default(i: Int = 1) = default(MoreKeys::class, i, false)
+fun MoreKeys?.default(i: Int = 1) = default(MoreKeys::class, i, false)

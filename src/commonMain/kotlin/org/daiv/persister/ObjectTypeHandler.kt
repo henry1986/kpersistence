@@ -3,31 +3,34 @@ package org.daiv.persister
 import kotlin.reflect.KClass
 
 
-interface FoldList<T> {
-    val nativeTypes: List<T>
+fun <T> List<T>.foldList(func: T.() -> Row): Row {
+    return fold(Row()) { r1, r2 -> r1 + r2.func() }
+}
 
-    fun foldList(func: T.() -> Row): Row {
-        return nativeTypes.fold(Row()) { r1, r2 -> r1 + r2.func() }
+interface InsertHeadableList : InsertHeadable {
+    val nativeTypes: List<InsertHeadable>
+    override fun insertHead(): Row {
+        return nativeTypes.foldList { insertHead() }
     }
 }
 
-interface HeaderBuilder<T> : InsertHeadable, Headerable, FoldList<T> where T : Headerable, T : InsertHeadable {
-
-    override fun insertHead(): Row {
-        return foldList { insertHead() }
-    }
+interface HeaderableList : Headerable {
+    val nativeTypes: List<Headerable>
 
     override fun toHeader(): Row {
-        return foldList { toHeader() }
+        return nativeTypes.foldList { toHeader() }
     }
 }
 
-interface MainObjectHandler<T : Any> : ReadFromDB, HeaderBuilder<TypeHandler<T, *>>, ValueInserter<T> {
-    override val nativeTypes: List<TypeHandler<T, *>>
-
+interface ValueInserterBuilder<T : Any> : ValueInserter<T> {
+    val nativeTypes: List<ValueInserterMapper<in T>>
     override fun insertValue(t: T?): Row {
-        return foldList { toInsert(t) }
+        return nativeTypes.foldList { toInsert(t) }
     }
+}
+
+interface MainObjectHandler<T : Any> : ReadFromDB, ValueInserterBuilder<T>, InsertHeadableList, HeaderableList {
+    override val nativeTypes: List<TypeHandler<T, *>>
 
     private fun recursiveRead(databaseRunner: DatabaseRunner, i: Int): DatabaseRunner {
         if (i < nativeTypes.size) {
@@ -57,7 +60,7 @@ data class ObjectTypeHandler<T : Any>(
     override val nativeTypes: List<TypeHandler<T, *>>,
     val moreKeys: MoreKeysData,
     val valueFactory: ValueFactory<T>,
-) : ValueInserter<T>, InsertHeadable, Headerable, MainObjectHandler<T>, ValueFactory<T> by valueFactory {
+) : ValueInserter<T>, InsertHeadableList, HeaderableList, MainObjectHandler<T>, ValueFactory<T> by valueFactory {
 
     private val keys = nativeTypes.take(moreKeys.amount)
     private val keyNumberOfColumns = keys.sumOf { it.numberOfColumns }

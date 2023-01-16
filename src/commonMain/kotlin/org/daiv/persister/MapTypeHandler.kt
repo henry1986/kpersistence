@@ -124,7 +124,7 @@ data class MapTypeHandler<PRIMARYKEY, MAPHOLDER : Any, MAPVALUE, MAPKEY>(
     override val valueHandler: ColTypeHandler<MAPVALUE>,
     override val primaryKeyReader: PrimaryKeyGetter<MAPHOLDER, PRIMARYKEY>,
     override val typeReader: MapTypeReader<MAPHOLDER, MAPVALUE, MAPKEY>
-) : HeaderBuilder<ColTypeHandler<*>>, ThreeColumnable<MAPKEY, MAPVALUE>, GetValuesFromDBRunner,
+) : HeaderableList, InsertHeadableList, ThreeColumnable<MAPKEY, MAPVALUE>, GetValuesFromDBRunner,
     InsertCollectionFromRow<MAPHOLDER, PRIMARYKEY, Map.Entry<MAPKEY, MAPVALUE>, List<Map.Entry<MAPKEY, MAPVALUE>>> {
 
     override val nativeTypes = listOf(primaryHandler, keyHandler, valueHandler)
@@ -168,7 +168,7 @@ data class ListTypeHandler<PRIMARYKEY, LISTHOLDER : Any, LISTELEMENT>(
     override val valueHandler: ColTypeHandler<LISTELEMENT>,
     override val primaryKeyReader: PrimaryKeyGetter<LISTHOLDER, PRIMARYKEY>,
     override val typeReader: ListTypeReader<LISTHOLDER, LISTELEMENT>
-) : HeaderBuilder<ColTypeHandler<*>>,
+) : HeaderableList, InsertHeadableList,
     ThreeColumnable<Int, LISTELEMENT>,
     GetValuesFromDBRunner,
     InsertCollectionFromRow<LISTHOLDER, PRIMARYKEY, LISTELEMENT, List<LISTELEMENT>> {
@@ -192,7 +192,7 @@ data class SetTypeHandler<PRIMARYKEY, SETHOLDER : Any, SETELEMENT>(
     val valueHandler: ColTypeHandler<SETELEMENT>,
     override val primaryKeyReader: PrimaryKeyGetter<SETHOLDER, PRIMARYKEY>,
     override val typeReader: SetTypeReader<SETHOLDER, SETELEMENT>
-) : HeaderBuilder<ColTypeHandler<*>>, InsertCollectionFromRow<SETHOLDER, PRIMARYKEY, SETELEMENT, Set<SETELEMENT>> {
+) : HeaderableList, InsertHeadableList, InsertCollectionFromRow<SETHOLDER, PRIMARYKEY, SETELEMENT, Set<SETELEMENT>> {
     override val nativeTypes = listOf(primaryHandler, valueHandler)
     override fun getRow(primarykey: Row, it: SETELEMENT, index: Int) =
         primarykey + valueHandler.insertValue(it)

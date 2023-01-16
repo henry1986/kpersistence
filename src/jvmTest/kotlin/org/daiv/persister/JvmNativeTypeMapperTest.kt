@@ -31,7 +31,7 @@ class JvmNativeTypeMapperTest<T : Any> {
         assertEquals(IntHolder::class, member.returnType.classifier)
         assertEquals(IntHolder::class, getter.memberClass)
         assertEquals(IntHolder(5), getter.get(ComplexHolder(IntHolder(5), 6)))
-        assertEquals<List<MemberValueGetter<*,*>>>(listOf(intHolderGetter), getter.getLowerMembers())
+        assertEquals<List<MemberValueGetter<*,*>>>(listOf(intHolderGetter), getter.members)
         assertFalse(getter.isMarkedNullable)
     }
 

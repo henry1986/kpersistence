@@ -7,20 +7,17 @@ fun interface GetValue<HIGHER : Any, LOWER> {
     fun get(higher: HIGHER): LOWER?
 }
 
-fun interface ValueFactory<HOLDER>{
+fun interface ValueFactory<HOLDER> {
     fun createValueArgs(vararg args: Any?): HOLDER
-    fun createValue(list:List<Any?>): HOLDER{
+    fun createValue(list: List<Any?>): HOLDER {
         return createValueArgs(*list.toTypedArray())
     }
 }
 
-interface Member<HOLDER : Any, MEMBER : Any> :ValueFactory<HOLDER>{
-    val holderClass: KClass<HOLDER>
+interface FlatClass<MEMBER : Any> {
     val memberClass: KClass<MEMBER>
     val moreKeys: MoreKeysData
-    val name: String
-    val isMarkedNullable: Boolean
-
+    val members: List<MemberValueGetter<MEMBER, out Any>>
     fun getType(): NativeType? {
         return when (memberClass) {
             Int::class -> NativeType.INT
@@ -35,13 +32,18 @@ interface Member<HOLDER : Any, MEMBER : Any> :ValueFactory<HOLDER>{
         }
     }
 
-    fun isNative() = getType()?.isNative == true
-    fun isCollection() = getType()?.isCollection == true
+    fun createObjectType(valueFactory: ValueFactory<MEMBER>) =
+        ObjectTypeHandler(members.map { it.create() }, moreKeys, valueFactory)
+}
+
+interface Member<HOLDER : Any, MEMBER : Any> : ValueFactory<HOLDER>, FlatClass<MEMBER> {
+    val holderClass: KClass<HOLDER>
+    val name: String
+    val isMarkedNullable: Boolean
 }
 
 interface MemberValueGetter<HOLDERCLASS : Any, LOWERTYPE : Any> : Member<HOLDERCLASS, LOWERTYPE>,
     GetValue<HOLDERCLASS, LOWERTYPE> {
-    fun getLowerMembers(): List<MemberValueGetter<LOWERTYPE, *>>
 
     fun create(): TypeHandler<HOLDERCLASS, LOWERTYPE> {
         val type = getType()
@@ -80,22 +82,24 @@ inline fun <reified HOLDER : Any, reified MEMBERTYPE : Any> memberValueGetterCre
     func
 )
 
+class DefaultFlatClass<MEMBER : Any>(
+    override val memberClass: KClass<MEMBER>,
+    override val moreKeys: MoreKeysData,
+    override val members: List<MemberValueGetter<MEMBER, *>> = emptyList()
+) : FlatClass<MEMBER>
+
 class DefaultMemberValueGetter<HOLDER : Any, MEMBER : Any>(
     override val holderClass: KClass<HOLDER>,
     override val memberClass: KClass<MEMBER>,
     override val name: String,
     override val isMarkedNullable: Boolean,
     override val moreKeys: MoreKeysData,
-    val members: List<MemberValueGetter<MEMBER, out Any>> = emptyList(),
+    override val members: List<MemberValueGetter<MEMBER, out Any>> = emptyList(),
     val valueFactory: ValueFactory<HOLDER>,
     val func: HOLDER.() -> MEMBER
-) : MemberValueGetter<HOLDER, MEMBER>, ValueFactory<HOLDER> by valueFactory{
+) : MemberValueGetter<HOLDER, MEMBER>, ValueFactory<HOLDER> by valueFactory {
     override fun get(higher: HOLDER): MEMBER? {
         return higher.func()
-    }
-
-    override fun getLowerMembers(): List<MemberValueGetter<MEMBER, *>> {
-        return members
     }
 }
 
@@ -106,13 +110,12 @@ interface TypeHandlerFactory {
 object ObjectTypeMapperCreator : TypeHandlerFactory {
 
     override fun <HIGHERCLASS : Any, LOWERTYPE : Any> create(member: MemberValueGetter<HIGHERCLASS, LOWERTYPE>): ObjectTypeRefHandler<HIGHERCLASS, LOWERTYPE> {
-        val got: List<TypeHandler<LOWERTYPE, *>> = member.getLowerMembers().map { it.create() }
         return ObjectTypeRefHandler(
             member.name,
             member.isMarkedNullable,
             member.memberClass,
             member.moreKeys,
-            got,
+            member.members.map { it.create() },
             member
         )
     }
