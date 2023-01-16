@@ -29,8 +29,24 @@ interface ValueInserterBuilder<T : Any> : ValueInserter<T> {
     }
 }
 
-interface MainObjectHandler<T : Any> : ReadFromDB, ValueInserterBuilder<T>, InsertHeadableList, HeaderableList {
+interface MainObjectHandler<T : Any> : ReadFromDB, ValueInserterBuilder<T>, InsertHeadableList, HeaderableList,
+    SelectMapper {
     override val nativeTypes: List<TypeHandler<T, *>>
+
+    private fun recMap(i: Int, list: List<Any?>, row: Row): Row {
+        if (i < nativeTypes.size) {
+            val got = nativeTypes[i]
+            val keys = list.take(got.numberOfColumns)
+            val next = got.select(keys)
+            return recMap(i + 1, list.drop(got.numberOfColumns), row + next)
+        }
+        return row
+    }
+
+    override fun select(list: List<Any?>): Row {
+        return recMap(0, list, Row())
+    }
+
 
     private fun recursiveRead(databaseRunner: DatabaseRunner, i: Int): DatabaseRunner {
         if (i < nativeTypes.size) {

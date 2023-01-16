@@ -40,9 +40,9 @@ interface CommandImplementer<MEMBER : Any> {
         return command.insert(InsertTableData(obj.insertHead(), list.map { obj.insertValue(it) }))
     }
 
-//    fun select(key:List<Any>):String{
-//        return command.selectKey(DefaultSelectKeyTableData())
-//    }
+    fun select(key: List<Any>): String {
+        return command.selectKey(DefaultSelectKeyTableData(obj.keyNames(), obj.select(key)))
+    }
 }
 
 class DefaultTable<MEMBER : Any>(

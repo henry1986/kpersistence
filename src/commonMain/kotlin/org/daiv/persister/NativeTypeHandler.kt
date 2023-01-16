@@ -29,9 +29,12 @@ data class ListNativeTypeHandler<T> private constructor(
         type: NativeType,
         name: String,
         isNullable: Boolean,
-    ) : this(type, name, isNullable, DecoratorFactory.getDecorator(type, DefaultValueMapper()))
+    ) : this(type, name, isNullable, DecoratorFactory.getDecorator(type))
 
     override val numberOfColumns: Int = 1
+    override fun select(keys: List<Any?>): Row {
+        throw RuntimeException()
+    }
 
     override fun mapName(name: String): ListNativeTypeHandler<T> {
         return copy(name = nextName(name))
@@ -53,9 +56,13 @@ data class NativeTypeHandler<HIGHER : Any, T> private constructor(
         name: String,
         isNullable: Boolean,
         getValue: GetValue<HIGHER, T>
-    ) : this(type, name, isNullable, getValue, DecoratorFactory.getDecorator(type, DefaultValueMapper()))
+    ) : this(type, name, isNullable, getValue, DecoratorFactory.getDecorator(type))
 
     override fun mapName(name: String): NativeTypeHandler<HIGHER, T> {
         return copy(name = nextName(name))
+    }
+
+    override fun select(keys: List<Any?>): Row {
+        TODO("Not yet implemented")
     }
 }

@@ -36,77 +36,59 @@ interface DatabaseReaderValueGetter {
     }
 }
 
-data class ColumnValues(val holderKeys:List<Any?>, val lowerValues:List<Any?>)
+data class ColumnValues(val holderKeys: List<Any?>, val lowerValues: List<Any?>)
 
 interface ToValueable<T> {
     fun toValue(columnValues: ColumnValues, tableCollector: TableCollector): T?
 }
 
-interface MapValue<T> : ValueInserter<T>, DatabaseReaderValueGetter, ToValueable<T>
+interface ToStringable<T> {
+    fun asString(t: T?): String
+}
 
-class DefaultValueMapper<LOWERTYPE> : MapValue<LOWERTYPE> {
-    override fun insertValue(t: LOWERTYPE?): Row {
-        return Row(t.toString())
-    }
+interface MapValue<T> : NativeValueInserter<T>, DatabaseReaderValueGetter, ToValueable<T>, NativeValueSelecter<T>
+
+class DefaultValueMapper<T>() : AbstractValueMapper<T>
+interface AbstractValueMapper<LOWERTYPE> : MapValue<LOWERTYPE> {
 
     override fun toValue(columnValues: ColumnValues, tableCollector: TableCollector): LOWERTYPE {
         return columnValues.lowerValues.first() as LOWERTYPE
     }
 
-    override fun equals(other: Any?): Boolean {
-//        if (this === other) return true
-//        if (other == null || this::class != other::class) return false
-        if (other == null) return false
-        return this::class == other::class
-    }
-
-    override fun hashCode(): Int {
-        return this::class.hashCode()
+    override fun asString(t: LOWERTYPE?): String {
+        return t?.toString() ?: "null"
     }
 }
 
 object DecoratorFactory {
     fun <T> getDecorator(
         type: NativeType,
-        getValue: MapValue<T>
     ): MapValue<T> {
         @Suppress("UNCHECKED_CAST")
         return when (type) {
-            NativeType.BOOLEAN -> BooleanValueGetterDecorator(getValue as MapValue<Boolean?>) as MapValue<T>
-            NativeType.LONG -> LongValueGetterDecorator(getValue as MapValue<Long?>) as MapValue<T>
-            NativeType.STRING -> StringValueGetterDecorator(getValue as MapValue<String?>) as MapValue<T>
-            else -> getValue
+            NativeType.BOOLEAN -> BooleanValueGetterDecorator as MapValue<T>
+            NativeType.LONG -> LongValueGetterDecorator as MapValue<T>
+            NativeType.STRING -> StringValueGetterDecorator as MapValue<T>
+            else -> DefaultValueMapper()
         }
     }
 }
 
-class LongValueGetterDecorator(val getValue: MapValue<Long?>) :
-    MapValue<Long?> by getValue {
+object LongValueGetterDecorator : AbstractValueMapper<Long?> {
     override fun getValue(databaseReader: DatabaseReader, counter: Int): Long? {
         return databaseReader.getLong(counter)
     }
-
-    override fun equals(other: Any?): Boolean {
-//        if (this === other) return true
-//        if (other == null || this::class != other::class) return false
-        if (other == null) return false
-        return this::class == other::class
-    }
-
-    override fun hashCode(): Int {
-        return this::class.hashCode()
-    }
 }
 
-class BooleanValueGetterDecorator(val getValue: MapValue<Boolean?>) :
-    MapValue<Boolean?> by getValue {
-    override fun insertValue(t: Boolean?) = Row(
-        when (t) {
+object BooleanValueGetterDecorator : AbstractValueMapper<Boolean> {
+
+    override fun asString(t: Boolean?): String {
+        return when (t) {
             null -> "null"
             true -> "1"
             else -> "0"
         }
-    )
+    }
 
     override fun getValue(databaseReader: DatabaseReader, counter: Int): Boolean? {
         return when (databaseReader.get(counter)) {
@@ -115,22 +97,13 @@ class BooleanValueGetterDecorator(val getValue: MapValue<Boolean?>) :
             else -> false
         }
     }
-
-    override fun equals(other: Any?): Boolean {
-        if (other == null) return false
-        return this::class == other::class
-    }
-
-    override fun hashCode(): Int {
-        return this::class.hashCode()
-    }
 }
 
 
-class StringValueGetterDecorator(val getValue: MapValue<String?>) :
-    MapValue<String?> by getValue {
-    override fun insertValue(t: String?): Row {
-        return Row(if (t == null) "null" else "\"$t\"")
+object StringValueGetterDecorator : AbstractValueMapper<String>{
+
+    override fun asString(t: String?): String {
+        return if (t == null) "null" else "\"$t\""
     }
 
     override fun equals(other: Any?): Boolean {
@@ -145,6 +118,19 @@ class StringValueGetterDecorator(val getValue: MapValue<String?>) :
 
 interface ValueInserter<T> {
     fun insertValue(t: T?): Row
+}
+
+interface NativeValueInserter<T> : ToStringable<T>, ValueInserter<T> {
+    override fun insertValue(t: T?): Row {
+        return Row(asString(t))
+    }
+}
+
+interface NativeValueSelecter<T> : ToStringable<T>, SelectMapper {
+    @Suppress("UNCHECKED_CAST")
+    override fun select(keys: List<Any?>): Row {
+        return Row(asString(keys[0] as T))
+    }
 }
 
 interface ValueInserterMapper<HIGHER : Any> {
@@ -191,8 +177,12 @@ interface Columnable {
     val numberOfColumns: Int
 }
 
+interface SelectMapper {
+    fun select(keys: List<Any?>): Row
+}
+
 interface ColTypeHandler<T> : InsertHeadable,
-    NullableElement, Headerable, ReadFromDB, ValueInserter<T>, NameBuilder, Columnable, ToValueable<T> {
+    NullableElement, Headerable, ReadFromDB, ValueInserter<T>, NameBuilder, Columnable, ToValueable<T>, SelectMapper {
     fun mapName(name: String): ColTypeHandler<T>
 }
 

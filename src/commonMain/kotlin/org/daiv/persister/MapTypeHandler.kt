@@ -96,7 +96,7 @@ interface ThreeColumnable<COLKEY, COLELEMENT> : CollectionValueGetIterator {
 }
 
 interface EmptyHeader<MAPHOLDER : Any, T> : Headerable, InsertHeadable, ReadFromDB, ValueInserter<T>,
-    ValueInserterMapper<MAPHOLDER> {
+    ValueInserterMapper<MAPHOLDER>, SelectMapper {
     override fun insertHead(): Row {
         return Row()
     }
@@ -116,6 +116,10 @@ interface EmptyHeader<MAPHOLDER : Any, T> : Headerable, InsertHeadable, ReadFrom
     override fun toInsert(any: MAPHOLDER?): Row {
         return Row()
     }
+
+    override fun select(keys: List<Any?>): Row {
+        return Row()
+    }
 }
 
 data class MapTypeHandler<PRIMARYKEY, MAPHOLDER : Any, MAPVALUE, MAPKEY>(
@@ -125,7 +129,8 @@ data class MapTypeHandler<PRIMARYKEY, MAPHOLDER : Any, MAPVALUE, MAPKEY>(
     override val primaryKeyReader: PrimaryKeyGetter<MAPHOLDER, PRIMARYKEY>,
     override val typeReader: MapTypeReader<MAPHOLDER, MAPVALUE, MAPKEY>
 ) : HeaderableList, InsertHeadableList, ThreeColumnable<MAPKEY, MAPVALUE>, GetValuesFromDBRunner,
-    InsertCollectionFromRow<MAPHOLDER, PRIMARYKEY, Map.Entry<MAPKEY, MAPVALUE>, List<Map.Entry<MAPKEY, MAPVALUE>>> {
+    InsertCollectionFromRow<MAPHOLDER, PRIMARYKEY, Map.Entry<MAPKEY, MAPVALUE>, List<Map.Entry<MAPKEY, MAPVALUE>>>{
+
 
     override val nativeTypes = listOf(primaryHandler, keyHandler, valueHandler)
     override val valueHandlerColumnable: Columnable = valueHandler
