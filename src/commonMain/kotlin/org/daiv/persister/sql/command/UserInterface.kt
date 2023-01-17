@@ -41,7 +41,7 @@ interface CommandImplementer<MEMBER : Any> {
     }
 
     fun select(key: List<Any>): String {
-        return command.selectKey(DefaultSelectKeyTableData(obj.keyNames(), obj.select(key)))
+        return command.selectKey(DefaultSelectKeyTableData(obj.keyNames(), obj.mapValueToRow( key)))
     }
 }
 

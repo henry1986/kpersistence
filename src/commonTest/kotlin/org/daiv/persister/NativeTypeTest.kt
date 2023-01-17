@@ -16,3 +16,15 @@ class NativeTypeTest {
         assertEquals(5, handler.getValue(DatabaseRunner(listOf(5))).list.last())
     }
 }
+
+class ColumnRefTest {
+
+    @Test
+    fun test() {
+        val ref = ColumnRef( "i")
+        val ref2 = ColumnRef( "m", ref)
+        assertEquals("m_i", ref2.buildName())
+        val ref3 = ColumnRef("c", ref2)
+        assertEquals("c_m_i", ref3.buildName())
+    }
+}

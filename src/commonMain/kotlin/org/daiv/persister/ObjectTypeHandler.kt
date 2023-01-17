@@ -30,21 +30,21 @@ interface ValueInserterBuilder<T : Any> : ValueInserter<T> {
 }
 
 interface MainObjectHandler<T : Any> : ReadFromDB, ValueInserterBuilder<T>, InsertHeadableList, HeaderableList,
-    SelectMapper {
+    MapValueToRow {
     override val nativeTypes: List<TypeHandler<T, *>>
 
-    private fun recMap(i: Int, list: List<Any?>, row: Row): Row {
+    fun mapValuesToRow(i: Int, list: List<Any?>, row: Row): Row {
         if (i < nativeTypes.size) {
             val got = nativeTypes[i]
             val keys = list.take(got.numberOfColumns)
-            val next = got.select(keys)
-            return recMap(i + 1, list.drop(got.numberOfColumns), row + next)
+            val next = got.mapValueToRow(keys)
+            return mapValuesToRow(i + 1, list.drop(got.numberOfColumns), row + next)
         }
         return row
     }
 
-    override fun select(list: List<Any?>): Row {
-        return recMap(0, list, Row())
+    override fun mapValueToRow( list: List<Any?>): Row {
+        return mapValuesToRow(0, list, Row())
     }
 
 

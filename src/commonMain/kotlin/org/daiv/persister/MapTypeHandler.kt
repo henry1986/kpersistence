@@ -96,7 +96,7 @@ interface ThreeColumnable<COLKEY, COLELEMENT> : CollectionValueGetIterator {
 }
 
 interface EmptyHeader<MAPHOLDER : Any, T> : Headerable, InsertHeadable, ReadFromDB, ValueInserter<T>,
-    ValueInserterMapper<MAPHOLDER>, SelectMapper {
+    ValueInserterMapper<MAPHOLDER>, MapValueToRow {
     override fun insertHead(): Row {
         return Row()
     }
@@ -117,7 +117,7 @@ interface EmptyHeader<MAPHOLDER : Any, T> : Headerable, InsertHeadable, ReadFrom
         return Row()
     }
 
-    override fun select(keys: List<Any?>): Row {
+    override fun mapValueToRow(keys: List<Any?>): Row {
         return Row()
     }
 }

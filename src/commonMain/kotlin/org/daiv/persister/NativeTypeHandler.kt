@@ -32,8 +32,8 @@ data class ListNativeTypeHandler<T> private constructor(
     ) : this(type, name, isNullable, DecoratorFactory.getDecorator(type))
 
     override val numberOfColumns: Int = 1
-    override fun select(keys: List<Any?>): Row {
-        throw RuntimeException()
+    override fun mapValueToRow(keys: List<Any?>): Row {
+        TODO("Not yet implemented")
     }
 
     override fun mapName(name: String): ListNativeTypeHandler<T> {
@@ -48,7 +48,8 @@ data class NativeTypeHandler<HIGHER : Any, T> private constructor(
     val getValue: GetValue<HIGHER, T>,
     val mapValue: MapValue<T>,
 ) : TypeHandler<HIGHER, T>, TypeNameable by type, NativeHeader,
-    ValueInserter<T> by mapValue, ToValueable<T> by mapValue, ValueInserterWithGetter<HIGHER, T>,
+    ValueInserter<T> by mapValue, ToValueable<T> by mapValue, MapValueToRow by mapValue,
+    ValueInserterWithGetter<HIGHER, T>,
     GetValue<HIGHER, T> by getValue,
     GetValueFromDB<T>, NativeTypeColumn {
     constructor(
@@ -60,9 +61,5 @@ data class NativeTypeHandler<HIGHER : Any, T> private constructor(
 
     override fun mapName(name: String): NativeTypeHandler<HIGHER, T> {
         return copy(name = nextName(name))
-    }
-
-    override fun select(keys: List<Any?>): Row {
-        TODO("Not yet implemented")
     }
 }

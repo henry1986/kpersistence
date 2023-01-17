@@ -1,5 +1,6 @@
 package org.daiv.persister
 
+import kotlin.reflect.KProperty1
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
@@ -145,6 +146,13 @@ class TestComplexObjectType {
         val toRead = listOf(5, "Hello", 1, "World")
         val got = complexObjectTypeHandler.getValue(DatabaseRunner(toRead))
         assertEquals(toRead, got.list)
+    }
+
+    @Test
+    fun testSelect(){
+        val m: KProperty1<ComplexObject, ObjectTypeHandlerTest.MyObject> = ComplexObject::m
+        val i = ObjectTypeHandlerTest.MyObject::i
+        complexObjectTypeHandler.keyNames()
     }
 
     @Test

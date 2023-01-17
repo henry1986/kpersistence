@@ -1,7 +1,5 @@
 package org.daiv.persister
 
-import kotlin.reflect.KClass
-
 interface TypeNameable {
     val typeName: String
 }
@@ -48,7 +46,17 @@ interface ToStringable<T> {
 
 interface MapValue<T> : NativeValueInserter<T>, DatabaseReaderValueGetter, ToValueable<T>, NativeValueSelecter<T>
 
-class DefaultValueMapper<T>() : AbstractValueMapper<T>
+class DefaultValueMapper<T>() : AbstractValueMapper<T>{
+    override fun equals(other: Any?): Boolean {
+        if (this === other) return true
+        if (other == null || this::class != other::class) return false
+        return true
+    }
+
+    override fun hashCode(): Int {
+        return this::class.hashCode()
+    }
+}
 interface AbstractValueMapper<LOWERTYPE> : MapValue<LOWERTYPE> {
 
     override fun toValue(columnValues: ColumnValues, tableCollector: TableCollector): LOWERTYPE {
@@ -100,7 +108,7 @@ object BooleanValueGetterDecorator : AbstractValueMapper<Boolean> {
 }
 
 
-object StringValueGetterDecorator : AbstractValueMapper<String>{
+object StringValueGetterDecorator : AbstractValueMapper<String> {
 
     override fun asString(t: String?): String {
         return if (t == null) "null" else "\"$t\""
@@ -126,10 +134,14 @@ interface NativeValueInserter<T> : ToStringable<T>, ValueInserter<T> {
     }
 }
 
-interface NativeValueSelecter<T> : ToStringable<T>, SelectMapper {
+interface NativeValueSelecter<T> : ToStringable<T>, MapValueToRow {
     @Suppress("UNCHECKED_CAST")
-    override fun select(keys: List<Any?>): Row {
-        return Row(asString(keys[0] as T))
+    override fun mapValueToRow(keys: List<Any?>): Row {
+        try {
+            return Row(asString(keys[0] as T))
+        } catch (t: Throwable) {
+            throw t
+        }
     }
 }
 
@@ -164,6 +176,10 @@ interface TypeHandler<HIGHER : Any, T> : ColTypeHandler<T>, ValueInserterMapper<
     override fun mapName(name: String): TypeHandler<HIGHER, T>
 }
 
+data class ColumnRef(val name: String, val columnRef: ColumnRef? = null) {
+    fun buildName(): String = if (columnRef == null) name else "${name}_${columnRef.buildName()}"
+}
+
 interface NameBuilder : Nameable {
     fun nextName(name: String): String {
         return "${name}_${this.name}"
@@ -177,12 +193,12 @@ interface Columnable {
     val numberOfColumns: Int
 }
 
-interface SelectMapper {
-    fun select(keys: List<Any?>): Row
+interface MapValueToRow {
+    fun mapValueToRow(keys: List<Any?>): Row
 }
 
 interface ColTypeHandler<T> : InsertHeadable,
-    NullableElement, Headerable, ReadFromDB, ValueInserter<T>, NameBuilder, Columnable, ToValueable<T>, SelectMapper {
+    NullableElement, Headerable, ReadFromDB, ValueInserter<T>, NameBuilder, Columnable, ToValueable<T>, MapValueToRow {
     fun mapName(name: String): ColTypeHandler<T>
 }
 
