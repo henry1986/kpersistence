@@ -34,7 +34,7 @@ class CommandTest {
         assertEquals("SELECT * FROM `$tableName`;", command.selectAll(SelectAllTableData))
     }
 
-    val selectData = DefaultSelectKeyTableData(Row("i", "s"), Row("5", "\"Hello\""))
+    val selectData = DefaultHeaderValuePair(Column("i", "5"), Column("s", "\"Hello\""))
 
     @Test
     fun testSelectKey() {
@@ -58,8 +58,8 @@ class CommandTest {
             "UPDATE `$tableName` SET i = 9, x = 856 WHERE i = 5 AND s = \"Hello\";",
             command.updateTable(
                 UpdateSelectKeyTableData(
-                    DefaultSelectKeyTableData(Row("i", "s"), Row("5", "\"Hello\"")),
-                    DefaultSelectKeyTableData(Row("i", "x"), Row("9", "856"))
+                    DefaultHeaderValuePair(Column("i", "5"), Column("s", "\"Hello\"")),
+                    DefaultHeaderValuePair(Column("i", "9"), Column("x", "856"))
                 )
             )
         )

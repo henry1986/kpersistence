@@ -1,5 +1,9 @@
 package org.daiv.persister
 
+import org.daiv.persister.sql.command.Column
+import org.daiv.persister.sql.command.HeaderValuePair
+import kotlin.reflect.KProperty1
+
 interface TypeNameable {
     val typeName: String
 }
@@ -10,6 +14,7 @@ interface InsertHeadable {
 
 interface Nameable {
     val name: String
+    val nonMappedName: String
 }
 
 interface NullableElement {
@@ -44,9 +49,9 @@ interface ToStringable<T> {
     fun asString(t: T?): String
 }
 
-interface MapValue<T> : NativeValueInserter<T>, DatabaseReaderValueGetter, ToValueable<T>, NativeValueSelecter<T>
+interface MapValue<T> : NativeValueInserter<T>, DatabaseReaderValueGetter, ToValueable<T>
 
-class DefaultValueMapper<T>() : AbstractValueMapper<T>{
+class DefaultValueMapper<T>() : AbstractValueMapper<T> {
     override fun equals(other: Any?): Boolean {
         if (this === other) return true
         if (other == null || this::class != other::class) return false
@@ -57,6 +62,7 @@ class DefaultValueMapper<T>() : AbstractValueMapper<T>{
         return this::class.hashCode()
     }
 }
+
 interface AbstractValueMapper<LOWERTYPE> : MapValue<LOWERTYPE> {
 
     override fun toValue(columnValues: ColumnValues, tableCollector: TableCollector): LOWERTYPE {
@@ -134,17 +140,6 @@ interface NativeValueInserter<T> : ToStringable<T>, ValueInserter<T> {
     }
 }
 
-interface NativeValueSelecter<T> : ToStringable<T>, MapValueToRow {
-    @Suppress("UNCHECKED_CAST")
-    override fun mapValueToRow(keys: List<Any?>): Row {
-        try {
-            return Row(asString(keys[0] as T))
-        } catch (t: Throwable) {
-            throw t
-        }
-    }
-}
-
 interface ValueInserterMapper<HIGHER : Any> {
     fun toInsert(any: HIGHER?): Row
 }
@@ -193,12 +188,35 @@ interface Columnable {
     val numberOfColumns: Int
 }
 
-interface MapValueToRow {
-    fun mapValueToRow(keys: List<Any?>): Row
+fun Any?.forKey(vararg p: KProperty1<*, *>) = PropertySelectKey(p.asList(), this)
+
+data class PropertySelectKey(val keys: List<KProperty1<*, *>>, val value: Any?) {
+    fun toSelectKey() = SelectKey(keys.map { it.name }, value)
+}
+
+data class SelectKey(val keys: List<String>, val value: Any?)
+
+interface SelectHeader {
+    fun select(list: List<SelectKey>): List<Column>
+}
+
+interface NativeSelectHeader<T>:SelectHeader, Nameable, ToStringable<T>{
+    override fun select(list: List<SelectKey>): List<Column> {
+        if (list.size != 1) {
+            throw RuntimeException("expected a size of 1")
+        }
+        val select = list.first()
+        val name = select.keys.joinToString("_")
+        if (name != this.name) {
+            throw RuntimeException("expected name ${this.name}, but was $name")
+        }
+        return listOf(Column(name, asString(select.value as T?)))
+    }
 }
 
 interface ColTypeHandler<T> : InsertHeadable,
-    NullableElement, Headerable, ReadFromDB, ValueInserter<T>, NameBuilder, Columnable, ToValueable<T>, MapValueToRow {
+    NullableElement, Headerable, ReadFromDB, ValueInserter<T>, NameBuilder, Columnable, ToValueable<T>,
+    SelectHeader {
     fun mapName(name: String): ColTypeHandler<T>
 }
 

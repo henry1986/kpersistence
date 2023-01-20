@@ -1,5 +1,6 @@
 package org.daiv.persister
 
+import org.daiv.persister.sql.command.Column
 import kotlin.reflect.KClass
 
 
@@ -43,7 +44,7 @@ interface MainObjectHandler<T : Any> : ReadFromDB, ValueInserterBuilder<T>, Inse
         return row
     }
 
-    override fun mapValueToRow( list: List<Any?>): Row {
+    override fun mapValueToRow(list: List<Any?>): Row {
         return mapValuesToRow(0, list, Row())
     }
 
@@ -120,7 +121,8 @@ data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
     override val clazz: KClass<T>,
     val moreKeys: MoreKeysData,
     val _nativeTypes: List<TypeHandler<T, *>>,
-    val getValue: GetValue<HIGHER, T>
+    val getValue: GetValue<HIGHER, T>,
+    override val nonMappedName: String = name,
 ) : TypeHandler<HIGHER, T>, Nameable, MainObjectHandler<T>, ToValueable<T>, Classable<T> {
 
     override val nativeTypes = _nativeTypes.take(moreKeys.amount).map { it.mapName(name) }
@@ -133,6 +135,21 @@ data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
 
     override fun mapName(name: String): ObjectTypeRefHandler<HIGHER, T> {
         return copy(name = "${name}_${this.name}")
+    }
+
+    override fun select(list: List<SelectKey>): List<Column> {
+        if (list.size == 1) {
+            if (list.first().keys.size == 1) {
+                val v = list.first().value
+                val insert = insertValue(v as T?)
+                val head = insertHead()
+                return head.list.mapIndexed { i, it -> Column(it, insert.list[i]) }
+            } else {
+                throw RuntimeException("list doesn't make sense: $list")
+            }
+        } else {
+
+        }
     }
 
     override fun toInsert(any: HIGHER?): Row {

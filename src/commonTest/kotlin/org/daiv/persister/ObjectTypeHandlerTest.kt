@@ -78,29 +78,30 @@ class ObjectTypeHandlerTest {
     }
 }
 
+private val myObjectDefaultMemberValueGetter = memberValueGetterCreator(
+    "m", false, MoreKeysData(2), listOf(
+        memberValueGetterCreator("i", false, valueFactory = myObjectValueFactory) { i },
+        memberValueGetterCreator("s", false, valueFactory = myObjectValueFactory) { s },
+        memberValueGetterCreator("x", false, valueFactory = myObjectValueFactory) { x },
+    ), valueFactory = createComplexObject
+) { m }
+private val complexObjectMember = listOf(myObjectDefaultMemberValueGetter) + listOf(
+    memberValueGetterCreator("x", false, valueFactory = createComplexObject) { x },
+    memberValueGetterCreator("s", false, valueFactory = createComplexObject) { s },
+)
+
+private val complexObjectTypeHandlerList = complexObjectMember.map { it.create() }
+val complexObjectTypeHandler = objectType(complexObjectTypeHandlerList, MoreKeysData(2)) {
+    TestComplexObjectType.ComplexObject(
+        it[0] as ObjectTypeHandlerTest.MyObject, it[1] as Int,
+        it[2] as String
+    )
+}
+
 class TestComplexObjectType {
     @MoreKeys(2)
     data class ComplexObject(val m: ObjectTypeHandlerTest.MyObject, val x: Int, val s: String)
 
-    private val myObjectDefaultMemberValueGetter = memberValueGetterCreator(
-        "m", false, MoreKeysData(2), listOf(
-            memberValueGetterCreator("i", false, valueFactory = myObjectValueFactory) { i },
-            memberValueGetterCreator("s", false, valueFactory = myObjectValueFactory) { s },
-            memberValueGetterCreator("x", false, valueFactory = myObjectValueFactory) { x },
-        ), valueFactory = createComplexObject
-    ) { m }
-    private val complexObjectMember = listOf(myObjectDefaultMemberValueGetter) + listOf(
-        memberValueGetterCreator("x", false, valueFactory = createComplexObject) { x },
-        memberValueGetterCreator("s", false, valueFactory = createComplexObject) { s },
-    )
-
-    private val complexObjectTypeHandlerList = complexObjectMember.map { it.create() }
-    val complexObjectTypeHandler = objectType(complexObjectTypeHandlerList, MoreKeysData(2)) {
-        ComplexObject(
-            it[0] as ObjectTypeHandlerTest.MyObject, it[1] as Int,
-            it[2] as String
-        )
-    }
 
     @Test
     fun testObjectType() {

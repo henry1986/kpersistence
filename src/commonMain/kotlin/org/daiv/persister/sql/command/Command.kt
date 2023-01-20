@@ -6,36 +6,25 @@ data class InsertTableData(val header: Row, val values: List<Row>)
 data class CreateTableData(val header: Row, val primaryKey: Row)
 object SelectAllTableData
 
+data class Column(val keyName: String, val value: String)
+
 interface HeaderValuePair {
-    val keyHeader: Row
-    val values: Row
+    val columns:List<Column>
 
-    fun checkSize() {
-        if (keyHeader.list.size != values.list.size) {
-            throw RuntimeException("keyHeader must have same size like values: $keyHeader vs $values")
-        }
-    }
-
-    fun mergeLists() = keyHeader.list.mapIndexed { i, keyName ->
-        val value = values.list[i]
-        "$keyName = $value"
+    fun mergeLists() = columns.map {
+        "${it.keyName} = ${it.value}"
     }
 
     fun asAndConcatenatedString() = mergeLists().joinToString(" AND ")
     fun asCommaSeparatedString() = mergeLists().joinToString(", ")
 }
 
-data class DefaultSelectKeyTableData(override val keyHeader: Row, override val values: Row) : HeaderValuePair {
-    init {
-        checkSize()
-    }
+data class DefaultHeaderValuePair(override val columns:List<Column>) : HeaderValuePair {
+    constructor(vararg c:Column):this(c.asList())
 }
 
 data class UpdateSelectKeyTableData(val keyOfValuesToChange: HeaderValuePair, val changedValue: HeaderValuePair) :
     HeaderValuePair by keyOfValuesToChange {
-    init {
-        checkSize()
-    }
 }
 
 interface Command {

@@ -23,8 +23,10 @@ data class ListNativeTypeHandler<T> private constructor(
     override val name: String,
     override val isNullable: Boolean,
     private val mapValue: MapValue<T>,
+    override val nonMappedName: String = name
 ) : ColTypeHandler<T>, TypeNameable by type, NativeHeader,
-    ValueInserter<T> by mapValue, ToValueable<T> by mapValue, GetValueFromDB<T>, NativeTypeColumn {
+    ValueInserter<T> by mapValue, ToValueable<T> by mapValue, GetValueFromDB<T>, NativeTypeColumn,
+    NativeSelectHeader<T>, ToStringable<T> by mapValue {
     constructor(
         type: NativeType,
         name: String,
@@ -32,9 +34,6 @@ data class ListNativeTypeHandler<T> private constructor(
     ) : this(type, name, isNullable, DecoratorFactory.getDecorator(type))
 
     override val numberOfColumns: Int = 1
-    override fun mapValueToRow(keys: List<Any?>): Row {
-        TODO("Not yet implemented")
-    }
 
     override fun mapName(name: String): ListNativeTypeHandler<T> {
         return copy(name = nextName(name))
@@ -47,11 +46,12 @@ data class NativeTypeHandler<HIGHER : Any, T> private constructor(
     override val isNullable: Boolean,
     val getValue: GetValue<HIGHER, T>,
     val mapValue: MapValue<T>,
+    override val nonMappedName: String = name
 ) : TypeHandler<HIGHER, T>, TypeNameable by type, NativeHeader,
-    ValueInserter<T> by mapValue, ToValueable<T> by mapValue, MapValueToRow by mapValue,
+    ValueInserter<T> by mapValue, ToValueable<T> by mapValue,
     ValueInserterWithGetter<HIGHER, T>,
     GetValue<HIGHER, T> by getValue,
-    GetValueFromDB<T>, NativeTypeColumn {
+    GetValueFromDB<T>, NativeTypeColumn, NativeSelectHeader<T>, ToStringable<T> by mapValue {
     constructor(
         type: NativeType,
         name: String,

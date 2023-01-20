@@ -1,5 +1,8 @@
 package org.daiv.persister
 
+import org.daiv.persister.ObjectTypeHandlerTest.MyObject
+import org.daiv.persister.TestComplexObjectType.ComplexObject
+import org.daiv.persister.sql.command.HeaderValuePair
 import org.junit.Test
 import kotlin.reflect.KProperty1
 import kotlin.reflect.full.declaredMemberProperties
@@ -12,7 +15,10 @@ class JvmNativeTypeMapperTest<T : Any> {
     data class IntHolder(val i: Int)
     data class ComplexHolder(val ih: IntHolder, val i: Int)
 
-    val intHolderGetter = DefaultValueGetter(IntHolder::class.declaredMemberProperties.first() as KProperty1<IntHolder, Int?>, IntHolder::class.primaryConstructor!!)
+    val intHolderGetter = DefaultValueGetter(
+        IntHolder::class.declaredMemberProperties.first() as KProperty1<IntHolder, Int?>,
+        IntHolder::class.primaryConstructor!!
+    )
 
     @Test
     fun test() {
@@ -25,20 +31,32 @@ class JvmNativeTypeMapperTest<T : Any> {
 
     @Test
     fun testComplex() {
-        val member: KProperty1<ComplexHolder, IntHolder> = ComplexHolder::class.memberInConstructorOrder().first() as KProperty1<ComplexHolder, IntHolder>
+        val member: KProperty1<ComplexHolder, IntHolder> =
+            ComplexHolder::class.memberInConstructorOrder().first() as KProperty1<ComplexHolder, IntHolder>
         val getter = DefaultValueGetter(member, ComplexHolder::class.primaryConstructor!!)
         assertEquals("ih", getter.name)
         assertEquals(IntHolder::class, member.returnType.classifier)
         assertEquals(IntHolder::class, getter.memberClass)
         assertEquals(IntHolder(5), getter.get(ComplexHolder(IntHolder(5), 6)))
-        assertEquals<List<MemberValueGetter<*,*>>>(listOf(intHolderGetter), getter.members)
+        assertEquals<List<MemberValueGetter<*, *>>>(listOf(intHolderGetter), getter.members)
         assertFalse(getter.isMarkedNullable)
+    }
+
+
+    @Test
+    fun testP() {
+        val m = ComplexObject::m
+        val l = 5.forKey(ComplexObject::m, MyObject::i)
+        val l2 = MyObject(5, "Hello", 9L).forKey(ComplexObject::m)
+
+        println("${m.returnType.classifier}")
+
     }
 
     @Test
     fun testFindAnno() {
 
-        val c = ObjectTypeHandlerTest.MyObject::class
+        val c = MyObject::class
         val m = c.findAnnotation<MoreKeys>()
         assertEquals(2, m?.amount)
     }
