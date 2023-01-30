@@ -1,6 +1,7 @@
 package org.daiv.persister
 
 import org.daiv.persister.sql.command.Column
+import org.daiv.persister.sql.command.SelectKey
 import kotlin.reflect.KClass
 
 
@@ -30,23 +31,8 @@ interface ValueInserterBuilder<T : Any> : ValueInserter<T> {
     }
 }
 
-interface MainObjectHandler<T : Any> : ReadFromDB, ValueInserterBuilder<T>, InsertHeadableList, HeaderableList,
-    MapValueToRow {
+interface MainObjectHandler<T : Any> : ReadFromDB, ValueInserterBuilder<T>, InsertHeadableList, HeaderableList {
     override val nativeTypes: List<TypeHandler<T, *>>
-
-    fun mapValuesToRow(i: Int, list: List<Any?>, row: Row): Row {
-        if (i < nativeTypes.size) {
-            val got = nativeTypes[i]
-            val keys = list.take(got.numberOfColumns)
-            val next = got.mapValueToRow(keys)
-            return mapValuesToRow(i + 1, list.drop(got.numberOfColumns), row + next)
-        }
-        return row
-    }
-
-    override fun mapValueToRow(list: List<Any?>): Row {
-        return mapValuesToRow(0, list, Row())
-    }
 
 
     private fun recursiveRead(databaseRunner: DatabaseRunner, i: Int): DatabaseRunner {
@@ -148,7 +134,7 @@ data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
                 throw RuntimeException("list doesn't make sense: $list")
             }
         } else {
-
+            throw RuntimeException()
         }
     }
 

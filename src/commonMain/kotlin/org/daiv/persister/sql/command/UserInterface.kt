@@ -41,7 +41,8 @@ interface CommandImplementer<MEMBER : Any> {
     }
 
     fun select(key: List<Any>): String {
-        return command.selectKey(DefaultHeaderValuePair(obj.keyNames(), obj.mapValueToRow( key)))
+        throw RuntimeException()
+//        return command.selectKey(DefaultHeaderValuePair(obj.keyNames(), obj.mapValueToRow( key)))
     }
 }
 

@@ -1,5 +1,7 @@
 package org.daiv.persister
 
+import org.daiv.persister.sql.command.Column
+import org.daiv.persister.sql.command.SelectKey
 import kotlin.reflect.KClass
 
 
@@ -96,7 +98,7 @@ interface ThreeColumnable<COLKEY, COLELEMENT> : CollectionValueGetIterator {
 }
 
 interface EmptyHeader<MAPHOLDER : Any, T> : Headerable, InsertHeadable, ReadFromDB, ValueInserter<T>,
-    ValueInserterMapper<MAPHOLDER>, MapValueToRow {
+    ValueInserterMapper<MAPHOLDER> {
     override fun insertHead(): Row {
         return Row()
     }
@@ -117,9 +119,6 @@ interface EmptyHeader<MAPHOLDER : Any, T> : Headerable, InsertHeadable, ReadFrom
         return Row()
     }
 
-    override fun mapValueToRow(keys: List<Any?>): Row {
-        return Row()
-    }
 }
 
 data class MapTypeHandler<PRIMARYKEY, MAPHOLDER : Any, MAPVALUE, MAPKEY>(
@@ -165,6 +164,13 @@ data class CollectionTypeHandlerRef<HOLDER : Any, T : Any>(
 
     override fun mapName(name: String): TypeHandler<HOLDER, T> {
         return copy(name = nextName(name))
+    }
+
+    override val nonMappedName: String
+        get() = TODO("Not yet implemented")
+
+    override fun select(list: List<SelectKey>): List<Column> {
+        TODO("Not yet implemented")
     }
 }
 

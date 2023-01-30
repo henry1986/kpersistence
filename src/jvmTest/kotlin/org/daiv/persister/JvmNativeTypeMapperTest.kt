@@ -42,17 +42,6 @@ class JvmNativeTypeMapperTest<T : Any> {
         assertFalse(getter.isMarkedNullable)
     }
 
-
-    @Test
-    fun testP() {
-        val m = ComplexObject::m
-        val l = 5.forKey(ComplexObject::m, MyObject::i)
-        val l2 = MyObject(5, "Hello", 9L).forKey(ComplexObject::m)
-
-        println("${m.returnType.classifier}")
-
-    }
-
     @Test
     fun testFindAnno() {
 

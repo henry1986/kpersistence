@@ -2,6 +2,7 @@ package org.daiv.persister
 
 import org.daiv.persister.sql.command.Column
 import org.daiv.persister.sql.command.HeaderValuePair
+import org.daiv.persister.sql.command.SelectKey
 import kotlin.reflect.KProperty1
 
 interface TypeNameable {
@@ -188,13 +189,6 @@ interface Columnable {
     val numberOfColumns: Int
 }
 
-fun Any?.forKey(vararg p: KProperty1<*, *>) = PropertySelectKey(p.asList(), this)
-
-data class PropertySelectKey(val keys: List<KProperty1<*, *>>, val value: Any?) {
-    fun toSelectKey() = SelectKey(keys.map { it.name }, value)
-}
-
-data class SelectKey(val keys: List<String>, val value: Any?)
 
 interface SelectHeader {
     fun select(list: List<SelectKey>): List<Column>
