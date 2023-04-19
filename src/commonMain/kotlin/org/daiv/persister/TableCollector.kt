@@ -19,8 +19,7 @@ infix fun <T : Any> KClass<T>.pairedWith(tableReader: TableReader<T>) =
 class DefaultTableCollector private constructor(
     val map: Map<KClass<*>, TableReader<*>>,
     val collectionTables: Map<Pair<KClass<*>, String?>, TableReader<*>>
-) :
-    TableCollector {
+) : TableCollector {
 
     constructor(
         list: List<ClassTableReaderPair<*>>,

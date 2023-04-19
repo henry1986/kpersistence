@@ -101,6 +101,20 @@ data class ObjectTypeHandler<T : Any>(
     }
 }
 
+/**
+ * Represents a handler for a reference to an object type `T` that is used as a property in a higher-level object type
+ * `HIGHER`. Provides methods for converting data between the database and the object types.
+ *
+ * @param HIGHER the type of the higher-level object that contains this property
+ * @param T the type of the object that this property represents
+ * @property name the name of the property
+ * @property isNullable `true` if the property can be `null`, `false` otherwise
+ * @property clazz the [KClass] object representing the object type `T`
+ * @property moreKeys additional metadata about the property
+ * @property _nativeTypes a list of type handlers for the native types that correspond to the columns in the database table
+ * @property getValue a function that retrieves the value of the property from a higher-level object
+ * @property nonMappedName the name of the property in the database table (optional; defaults to the value of `name`)
+ */
 data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
     override val name: String,
     override val isNullable: Boolean,
@@ -111,18 +125,46 @@ data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
     override val nonMappedName: String = name,
 ) : TypeHandler<HIGHER, T>, Nameable, MainObjectHandler<T>, ToValueable<T>, Classable<T> {
 
+    /**
+     * A list of type handlers for the native types that correspond to the columns in the database table.
+     * Includes only the first [MoreKeysData.amount] handlers from [_nativeTypes].
+     */
     override val nativeTypes = _nativeTypes.take(moreKeys.amount).map { it.mapName(name) }
 
+    /**
+     * Converts a [ColumnValues] object that contains the column values of a row in the database table into an object
+     * of type `T`, using the [TableReader] for `T` that is registered in the [TableCollector].
+     *
+     * @param columnValues the [ColumnValues] object containing the column values of a row in the database table
+     * @param tableCollector the [TableCollector] that contains the [TableReader] for `T`
+     * @return the object of type `T` that corresponds to the row in the database table, or `null` if the row is empty
+     */
     override fun toValue(columnValues: ColumnValues, tableCollector: TableCollector): T? {
         return tableCollector.getTableReader(clazz)?.readFromTable(columnValues.lowerValues)
     }
 
+    /**
+     * The total number of columns in the database table that correspond to this property.
+     */
     override val numberOfColumns: Int = nativeTypes.sumOf { it.numberOfColumns }
 
+    /**
+     * Returns a copy of this object with a modified name.
+     *
+     * @param name the new name of the property
+     * @return a copy of this object with the modified name
+     */
     override fun mapName(name: String): ObjectTypeRefHandler<HIGHER, T> {
         return copy(name = "${name}_${this.name}")
     }
 
+    /**
+     * Generates a list of [Column]s for the [SelectKey]s provided in [list].
+     *
+     * @throws [RuntimeException] if [list] contains multiple [SelectKey]s or if a [SelectKey] contains more than one key.
+     *
+     * @return A list of [Column]s generated from the [SelectKey] in [list].
+     */
     override fun select(list: List<SelectKey>): List<Column> {
         if (list.size == 1) {
             if (list.first().keys.size == 1) {
@@ -138,6 +180,12 @@ data class ObjectTypeRefHandler<HIGHER : Any, T : Any>(
         }
     }
 
+    /**
+     * Converts the given object into a [Row] object that can be inserted into a database table.
+     *
+     * @param any The object to insert into the database table.
+     * @return A [Row] object representing the object to be inserted.
+     */
     override fun toInsert(any: HIGHER?): Row {
         if (any == null) {
             return Row("null")

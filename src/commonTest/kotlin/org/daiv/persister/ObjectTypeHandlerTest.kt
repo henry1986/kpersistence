@@ -4,6 +4,15 @@ import kotlin.reflect.KProperty1
 import kotlin.test.Test
 import kotlin.test.assertEquals
 
+/**
+ * A value factory that creates instances of [MyObject] using a list of values.
+ *
+ * @param it The list of values to use for constructing the [MyObject] instance.
+ *           Must contain at least 3 values: an [Int], a [String], and a [Long].
+ * @return A new instance of [MyObject] constructed from the given list of values.
+ * @throws IllegalArgumentException If the given list of values does not contain exactly 3 values, or if any of the values
+ *         are not of the expected type (i.e. [Int], [String], [Long]).
+ */
 val myObjectValueFactory = ValueFactory {
     ObjectTypeHandlerTest.MyObject(
         it[0] as Int,
@@ -12,6 +21,9 @@ val myObjectValueFactory = ValueFactory {
     )
 }
 
+/**
+ * ValueFactory that creates a new instance of ComplexObject class using the given constructor parameters
+ */
 val createComplexObject = ValueFactory {
     TestComplexObjectType.ComplexObject(
         it[0] as ObjectTypeHandlerTest.MyObject,
@@ -19,6 +31,11 @@ val createComplexObject = ValueFactory {
         it[1] as String,
     )
 }
+
+/**
+ * Creates an ObjectTypeHandler for MyObject class with member value getters for 'i', 's', and 'x' properties.
+ * The MoreKeysData parameter is used to specify the number of keys used to uniquely identify each object of the class.
+ */
 val myObjectTypeHandler = objectType(
     listOf(
         memberValueGetter("i", false, valueFactory = myObjectValueFactory) { i },
@@ -78,6 +95,20 @@ class ObjectTypeHandlerTest {
     }
 }
 
+/**
+ * This is an example of creating a member value getter for a complex object with nested properties.
+ *
+ * This getter retrieves the values of the nested properties "i", "s", and "x" of an object's member variable "m".
+ *
+ * @property myObjectValueFactory The [ValueFactory] to use when creating the final object.
+ * @property createComplexObject A lambda that takes the values of the nested properties and returns the final object.
+ * @property i A function that returns the value of the "i" property.
+ * @property s A function that returns the value of the "s" property.
+ * @property x A function that returns the value of the "x" property.
+ * @property m The name of the member variable containing the nested properties.
+ * @property valueFactory The [ValueFactory] to use when creating the intermediate values.
+ * @property moreKeys The [MoreKeysData] specifying the number of keys to use for the intermediate values.
+ */
 private val myObjectDefaultMemberValueGetter = memberValueGetterCreator(
     "m", false, MoreKeysData(2), listOf(
         memberValueGetterCreator("i", false, valueFactory = myObjectValueFactory) { i },
@@ -85,6 +116,12 @@ private val myObjectDefaultMemberValueGetter = memberValueGetterCreator(
         memberValueGetterCreator("x", false, valueFactory = myObjectValueFactory) { x },
     ), valueFactory = createComplexObject
 ) { m }
+
+/**
+ * A list of [ValueGetter] objects that represent the members of [TestComplexObjectType.ComplexObject].
+ * This list is composed of [myObjectDefaultMemberValueGetter] and two other members, "x" and "s",
+ * that use [createComplexObject] as value factory and "x" and "s" as name respectively.
+ */
 private val complexObjectMember = listOf(myObjectDefaultMemberValueGetter) + listOf(
     memberValueGetterCreator("x", false, valueFactory = createComplexObject) { x },
     memberValueGetterCreator("s", false, valueFactory = createComplexObject) { s },
@@ -153,7 +190,7 @@ class TestComplexObjectType {
     fun testSelect(){
         val m: KProperty1<ComplexObject, ObjectTypeHandlerTest.MyObject> = ComplexObject::m
         val i = ObjectTypeHandlerTest.MyObject::i
-        complexObjectTypeHandler.keyNames()
+        
     }
 
     @Test
@@ -173,4 +210,5 @@ class TestComplexObjectType {
         )
         assertEquals(expect, got)
     }
+
 }
